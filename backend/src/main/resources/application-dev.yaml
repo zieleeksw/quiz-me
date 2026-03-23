@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/quiz-me
+    username: username
+    password: password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+  liquibase:
+    enabled: true
+    change-log: classpath:db/liquibase-changelog.xml
+
+app:
+  cors:
+    allowed-origins: http://localhost:4200
+
+  security:
+    jwt:
+      secret-key: 5267556B58703272357538782F413F4428472B4B6250655368566D5971337436
+      expiration:
+        access-token-ms: 900000       # 15 minutes
+        refresh-token-ms: 604800000   # 7 days
+
+  admin:
+    email: admin@quiz.com
+    password: Admin123!
+
+logging:
+  level:
+    liquibase: INFO
+    org.springframework.boot.autoconfigure.liquibase: DEBUG

@@ -1,3 +1,5 @@
 spring:
   application:
-    name: quiz-me
+    name: quiz
+  profiles:
+    active: dev

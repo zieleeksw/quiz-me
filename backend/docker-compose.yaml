@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  postgres:
+    container_name: postgres-quiz-me
+    image: postgres:15
+    environment:
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: quiz-me
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - spring-dev
+
+networks:
+  spring-dev:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
