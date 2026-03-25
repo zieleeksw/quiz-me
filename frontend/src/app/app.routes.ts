@@ -6,6 +6,8 @@ import { HomePageComponent } from './features/home/home-page.component';
 import { DashboardPageComponent } from './features/dashboard/dashboard-page.component';
 import { LoginPageComponent } from './features/auth/login-page.component';
 import { RegisterPageComponent } from './features/auth/register-page.component';
+import { CourseStudioPageComponent } from './features/course-studio/course-studio-page.component';
+import { CourseStudioEditorPageComponent } from './features/course-studio/course-studio-editor-page.component';
 
 export const routes: Routes = [
   {
@@ -24,8 +26,18 @@ export const routes: Routes = [
     canActivate: [guestGuard]
   },
   {
-    path: 'dashboard',
+    path: 'courses',
     component: DashboardPageComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'studio',
+    component: CourseStudioPageComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'studio/editor',
+    component: CourseStudioEditorPageComponent,
     canActivate: [authGuard]
   },
   {

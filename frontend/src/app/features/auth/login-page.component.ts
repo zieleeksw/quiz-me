@@ -57,7 +57,7 @@ export class LoginPageComponent {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: () => void this.router.navigateByUrl('/dashboard'),
+        next: () => void this.router.navigateByUrl('/courses'),
         error: (error) => {
           this.serverFieldErrors.set(extractFieldErrors(error));
           this.formError.set(extractApiMessage(error) ?? 'Invalid email or password.');

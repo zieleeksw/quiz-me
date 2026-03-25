@@ -1,0 +1,17 @@
+<header class="workspace-topbar">
+  <div class="workspace-topbar__brand">
+    <span class="workspace-topbar__eyebrow">Quiz Me</span>
+    <strong>Learning Workspace</strong>
+  </div>
+
+  <div class="workspace-topbar__account">
+    <div class="workspace-topbar__identity">
+      <span class="workspace-topbar__eyebrow">Signed in</span>
+      <strong>{{ user()?.email }}</strong>
+    </div>
+
+    <button class="workspace-topbar__logout" type="button" (click)="logout()">
+      Log Out
+    </button>
+  </div>
+</header>

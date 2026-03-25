@@ -1,0 +1,64 @@
+<main class="workspace-shell courses-page">
+  <app-workspace-topbar />
+
+  <div class="app-panel courses-panel">
+      <section class="courses-hero">
+        <div>
+          <p class="app-eyebrow">Courses</p>
+          <h1 class="app-title">Pick the certification path you want to train.</h1>
+          <p class="app-copy courses-hero__copy">
+            Your account is ready, so this page becomes the entry point to every course available to the learner.
+          </p>
+        </div>
+      </section>
+
+      <section class="courses-grid">
+        @for (course of courses; track course.title) {
+          <article class="course-card" [class.course-card--available]="course.status === 'available'">
+            <div class="course-card__top">
+              <span class="course-card__badge" [class.course-card__badge--secondary]="course.accent === 'secondary'">
+                {{ course.status === 'available' ? 'Available now' : 'Coming soon' }}
+              </span>
+              <h2>{{ course.title }}</h2>
+              <p>{{ course.subtitle }}</p>
+            </div>
+
+            <div class="course-card__stats">
+              <div class="course-card__stat">
+                <span>Questions</span>
+                <strong>{{ course.questionCount }}</strong>
+              </div>
+
+              <div class="course-card__stat">
+                <span>Quizzes</span>
+                <strong>{{ course.quizCount }}</strong>
+              </div>
+
+              <div class="course-card__stat">
+                <span>Progress</span>
+                <strong>{{ course.completion }}%</strong>
+              </div>
+            </div>
+
+            <div class="course-card__footer">
+              @if (course.route) {
+                <app-action-button
+                  label="Open Course"
+                  [routerLink]="course.route"
+                  [tone]="course.accent"
+                />
+              } @else {
+                <app-action-button
+                  label="Coming Soon"
+                  [routerLink]="null"
+                  [nativeType]="'button'"
+                  [disabled]="true"
+                  [tone]="course.accent"
+                />
+              }
+            </div>
+          </article>
+        }
+      </section>
+  </div>
+</main>

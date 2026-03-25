@@ -1,0 +1,81 @@
+<main class="workspace-shell studio-shell">
+  <app-workspace-topbar />
+
+  <section class="studio-hero">
+    <div>
+      <p class="app-eyebrow">Client Preview</p>
+      <h1 class="studio-title">{{ studio.courseTitle() }}</h1>
+      <p class="studio-copy">This view shows the learner-facing side of the course: published quizzes, shared progress, and a clean solving experience.</p>
+    </div>
+
+    <div class="studio-hero__actions">
+      <app-action-button label="Back to Courses" routerLink="/courses" tone="secondary" />
+      <app-action-button label="Open Quiz Creator" routerLink="/studio/editor" />
+    </div>
+  </section>
+
+  <section class="studio-stats">
+    <article class="studio-stat-card">
+      <span class="studio-stat-card__label">Question Bank</span>
+      <strong>{{ studio.totalQuestions() }}</strong>
+      <p>All questions live under one course and can feed multiple quiz variants.</p>
+    </article>
+
+    <article class="studio-stat-card">
+      <span class="studio-stat-card__label">Published Quizzes</span>
+      <strong>{{ studio.totalQuizzes() }}</strong>
+      <p>Manual sets and random practice both contribute to the same course-level learning loop.</p>
+    </article>
+
+    <article class="studio-stat-card">
+      <span class="studio-stat-card__label">Average Score</span>
+      <strong>{{ studio.averageScore() }}%</strong>
+      <p>Aggregated across every attempt, regardless of which quiz variation the learner chose.</p>
+    </article>
+
+    <article class="studio-stat-card">
+      <span class="studio-stat-card__label">Attempts</span>
+      <strong>{{ studio.totalAttempts() }}</strong>
+      <p>A course can tell one clear performance story even when the learner jumps between quiz formats.</p>
+    </article>
+  </section>
+
+  <section class="studio-grid studio-grid--preview">
+    <article class="studio-card">
+      <div class="studio-card__header">
+        <div>
+          <p class="app-eyebrow">Published</p>
+          <h2>Available Quizzes</h2>
+        </div>
+        <p class="studio-card__hint">This is the learner-facing list of quizzes already available inside the course.</p>
+      </div>
+
+      <div class="studio-list">
+        @for (quiz of studio.quizzes(); track quiz.id) {
+          <article class="studio-item studio-item--quiz">
+            <div class="studio-item__top">
+              <div>
+                <span class="studio-badge studio-badge--quiz">{{ quiz.mode === 'manual' ? 'Guided quiz' : 'Random quiz' }}</span>
+                <h3>{{ quiz.title }}</h3>
+              </div>
+
+              <strong class="studio-score studio-score--small">{{ quiz.resolvedQuestionCount }}</strong>
+            </div>
+
+            <p class="studio-meta">
+              @if (quiz.mode === 'manual') {
+                <span>Built from a fixed set of course questions.</span>
+              } @else {
+                <span>Pulls a fresh set of random questions from the course bank.</span>
+              }
+            </p>
+
+            <div class="app-actions-row">
+              <app-action-button label="Start Quiz" [routerLink]="null" [nativeType]="'button'" tone="secondary" (click)="studio.startQuiz(quiz.id)" />
+            </div>
+          </article>
+        }
+      </div>
+    </article>
+  </section>
+</main>

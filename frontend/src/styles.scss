@@ -21,6 +21,7 @@
   --gradient-card:
     linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(255, 248, 240, 0.72));
 
+  --workspace-width: 1280px;
   --radius-xl: 32px;
   --radius-lg: 22px;
   --radius-md: 16px;
@@ -80,6 +81,15 @@ a {
   background: var(--gradient-card);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(12px);
+}
+
+.workspace-shell {
+  min-height: 100vh;
+  width: min(100%, var(--workspace-width));
+  margin: 0 auto;
+  padding: 2rem;
+  display: grid;
+  gap: 1.5rem;
 }
 
 .app-eyebrow {
@@ -190,5 +200,9 @@ a {
   .app-actions-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .workspace-shell {
+    padding: 1rem;
   }
 }
