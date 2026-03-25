@@ -1,0 +1,25 @@
+<main class="app-shell">
+  <div class="app-panel landing-panel">
+    <div class="landing-panel__glow landing-panel__glow--left" aria-hidden="true"></div>
+    <div class="landing-panel__glow landing-panel__glow--right" aria-hidden="true"></div>
+
+    <app-auth-card
+      eyebrow="Quiz Me"
+      title="Choose how you want to begin."
+      description="Sign in to continue your progress or create a new account and start your next quiz adventure."
+    >
+      <div class="landing-panel__actions">
+        <app-action-button
+          label="Create Account"
+          routerLink="/register"
+        />
+
+        <app-action-button
+          label="Log In"
+          routerLink="/login"
+          tone="secondary"
+        />
+      </div>
+    </app-auth-card>
+  </div>
+</main>

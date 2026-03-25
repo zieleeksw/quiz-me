@@ -1,0 +1,20 @@
+.auth-page {
+  position: relative;
+}
+
+.auth-page--register::after {
+  content: "";
+  position: absolute;
+  inset: auto 2rem 1.8rem auto;
+  width: 7rem;
+  height: 7rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(217, 107, 67, 0.16), transparent 68%);
+  pointer-events: none;
+}
+
+.auth-page__actions {
+  display: grid;
+  gap: 0.9rem;
+  align-items: start;
+}

@@ -1,0 +1,41 @@
+<main class="app-shell">
+  <div class="app-panel auth-page">
+    <app-auth-card
+      eyebrow="Welcome Back"
+      title="Sign in to continue."
+      description="Access your quizzes, keep your progress, and jump right back into the game."
+    >
+      <form class="app-form" novalidate>
+        <div class="app-field">
+          <label for="login-email">Email address</label>
+          <input
+            id="login-email"
+            class="app-input"
+            type="email"
+            placeholder="you@example.com"
+          />
+        </div>
+
+        <div class="app-field">
+          <label for="login-password">Password</label>
+          <input
+            id="login-password"
+            class="app-input"
+            type="password"
+            placeholder="Enter your password"
+          />
+        </div>
+      </form>
+
+      <div class="auth-page__actions">
+        <app-action-button
+          label="Log In"
+          routerLink="/login"
+          tone="secondary"
+        />
+
+        <a class="app-muted-link" routerLink="/register">Don't have an account? Create one.</a>
+      </div>
+    </app-auth-card>
+  </div>
+</main>
