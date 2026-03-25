@@ -10,6 +10,8 @@ import { RouterLink } from '@angular/router';
 export class ActionButtonComponent {
   readonly label = input.required<string>();
   readonly helper = input<string>('');
-  readonly routerLink = input.required<string>();
+  readonly routerLink = input<string | null>(null);
   readonly tone = input<'primary' | 'secondary'>('primary');
+  readonly nativeType = input<'button' | 'submit'>('button');
+  readonly disabled = input(false);
 }

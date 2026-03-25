@@ -5,15 +5,26 @@
       title="Sign in to continue."
       description="Access your quizzes, keep your progress, and jump right back into the game."
     >
-      <form class="app-form" novalidate>
+      <form class="app-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        @if (formError()) {
+          <div class="app-form-message" role="alert">{{ formError() }}</div>
+        }
+
         <div class="app-field">
           <label for="login-email">Email address</label>
           <input
             id="login-email"
             class="app-input"
             type="email"
+            [class.app-input--invalid]="hasError('email')"
+            formControlName="email"
             placeholder="you@example.com"
+            autocomplete="email"
           />
+
+          @if (getErrorMessage('email'); as errorMessage) {
+            <p class="app-error-text">{{ errorMessage }}</p>
+          }
         </div>
 
         <div class="app-field">
@@ -22,20 +33,29 @@
             id="login-password"
             class="app-input"
             type="password"
+            [class.app-input--invalid]="hasError('password')"
+            formControlName="password"
             placeholder="Enter your password"
+            autocomplete="current-password"
           />
+
+          @if (getErrorMessage('password'); as errorMessage) {
+            <p class="app-error-text">{{ errorMessage }}</p>
+          }
+        </div>
+
+        <div class="auth-page__actions">
+          <app-action-button
+            label="Log In"
+            [routerLink]="null"
+            [nativeType]="'submit'"
+            tone="secondary"
+            [disabled]="isSubmitting()"
+          />
+
+          <a class="app-muted-link" routerLink="/register">Don't have an account? Create one.</a>
         </div>
       </form>
-
-      <div class="auth-page__actions">
-        <app-action-button
-          label="Log In"
-          routerLink="/login"
-          tone="secondary"
-        />
-
-        <a class="app-muted-link" routerLink="/register">Don't have an account? Create one.</a>
-      </div>
     </app-auth-card>
   </div>
 </main>
