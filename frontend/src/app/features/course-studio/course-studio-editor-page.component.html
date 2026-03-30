@@ -116,46 +116,112 @@
       <article class="studio-card">
         <div class="studio-card__header">
           <div>
+            <p class="app-eyebrow">Category Manager</p>
+            <h2>Keep The Course Taxonomy Clean</h2>
+          </div>
+          <p class="studio-card__hint">Create reusable categories once, rename them when the course language evolves, and keep question tagging consistent.</p>
+        </div>
+
+        <div class="studio-inline-entry">
+          <input
+            class="app-input"
+            [value]="newManagedCategory()"
+            placeholder="Add a managed category"
+            (input)="setNewManagedCategory(($any($event.target).value))"
+          />
+          <button class="studio-inline-button studio-inline-button--primary" type="button" (click)="createCategory()">
+            Add category
+          </button>
+        </div>
+
+        @if (categoryMessage()) {
+          <p class="studio-meta studio-meta--accent">{{ categoryMessage() }}</p>
+        }
+
+        <div class="studio-category-list">
+          @for (category of studio.categorySummaries(); track trackCategory($index, category.name)) {
+            <article class="studio-category-item">
+              <div class="studio-category-item__head">
+                <div>
+                  <span class="studio-badge">{{ category.name }}</span>
+                  <p class="studio-meta">
+                    {{ category.questionCount }} question{{ category.questionCount === 1 ? '' : 's' }} currently tagged with this category.
+                  </p>
+                </div>
+
+                <div class="studio-category-item__actions">
+                  @if (editingCategory() === category.name) {
+                    <button class="studio-inline-button" type="button" (click)="saveCategoryEdit(category.name)">Save</button>
+                    <button class="studio-inline-button" type="button" (click)="cancelCategoryEdit()">Cancel</button>
+                  } @else {
+                    <button class="studio-inline-button" type="button" (click)="startCategoryEdit(category.name)">Rename</button>
+                    <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="deleteCategory(category.name)">
+                      Delete
+                    </button>
+                  }
+                </div>
+              </div>
+
+              @if (editingCategory() === category.name) {
+                <div class="studio-inline-entry">
+                  <input
+                    class="app-input"
+                    [value]="editingCategoryDraft()"
+                    placeholder="Update category name"
+                    (input)="setEditingCategoryDraft(($any($event.target).value))"
+                  />
+                </div>
+              }
+            </article>
+          } @empty {
+            <div class="studio-empty">
+              <h3>No categories yet.</h3>
+              <p>Create the first managed category here, then start tagging questions from the composer below.</p>
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="studio-card">
+        <div class="studio-card__header">
+          <div>
             <p class="app-eyebrow">Question Composer</p>
             <h2>Create New Question</h2>
           </div>
-          <p class="studio-card__hint">Choose existing categories or add a new one on the fly while writing the question.</p>
+          <p class="studio-card__hint">Pick from the managed course categories, then write the question once the taxonomy already makes sense.</p>
         </div>
 
         <form class="studio-form" [formGroup]="questionForm" (ngSubmit)="addQuestion()">
           <div class="app-field">
             <label>Categories</label>
 
-            <div class="studio-chip-row studio-chip-row--tight">
-              @for (category of studio.availableCategories(); track trackCategory($index, category)) {
-                <button
-                  class="studio-chip"
-                  type="button"
-                  [class.studio-chip--active]="selectedComposerCategories().includes(category)"
-                  (click)="toggleComposerCategory(category)"
-                >
-                  {{ category }}
-                </button>
-              }
-            </div>
+            @if (studio.availableCategories().length) {
+              <div class="studio-chip-row studio-chip-row--tight">
+                @for (category of studio.availableCategories(); track trackCategory($index, category)) {
+                  <button
+                    class="studio-chip"
+                    type="button"
+                    [class.studio-chip--active]="selectedComposerCategories().includes(category)"
+                    (click)="toggleComposerCategory(category)"
+                  >
+                    {{ category }}
+                  </button>
+                }
+              </div>
 
-            <div class="studio-inline-entry">
-              <input
-                class="app-input"
-                [value]="newComposerCategory()"
-                placeholder="Add new category"
-                (input)="setNewComposerCategory(($any($event.target).value))"
-              />
-              <button class="studio-inline-button" type="button" (click)="addNewComposerCategory()">Add</button>
-            </div>
-
-            <div class="studio-inline-badges">
-              @for (category of selectedComposerCategories(); track trackCategory($index, category)) {
-                <button class="studio-chip studio-chip--active" type="button" (click)="removeComposerCategory(category)">
-                  {{ category }} x
-                </button>
-              }
-            </div>
+              <div class="studio-inline-badges">
+                @for (category of selectedComposerCategories(); track trackCategory($index, category)) {
+                  <button class="studio-chip studio-chip--active" type="button" (click)="removeComposerCategory(category)">
+                    {{ category }} x
+                  </button>
+                }
+              </div>
+            } @else {
+              <div class="studio-empty studio-empty--compact">
+                <h3>Create a category first.</h3>
+                <p>Use the category manager above before adding questions to this course.</p>
+              </div>
+            }
           </div>
 
           <div class="app-field">

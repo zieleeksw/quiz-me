@@ -8,6 +8,11 @@ type Question = {
   correctOptionIndex: number;
 };
 
+type Category = {
+  id: string;
+  name: string;
+};
+
 type QuizDefinition = {
   id: string;
   title: string;
@@ -36,6 +41,18 @@ type ActiveAttempt = {
     totalQuestions: number;
   } | null;
 };
+
+type CategoryMutationResult =
+  | { ok: true; name: string }
+  | { ok: false; reason: 'empty' | 'duplicate' | 'not-found' };
+
+type CategoryDeleteResult =
+  | {
+      ok: true;
+      reassignedQuestionCount: number;
+      fallbackCategoryName: string | null;
+    }
+  | { ok: false; reason: 'not-found' };
 
 export type StudioQuestion = Question;
 export type StudioQuiz = QuizDefinition;
@@ -83,6 +100,8 @@ export class CourseStudioService {
     }
   ]);
 
+  private readonly categoriesState = signal<Category[]>(this.createInitialCategories(this.questionsState()));
+
   private readonly quizzesState = signal<QuizDefinition[]>([
     {
       id: this.createId('quiz'),
@@ -123,7 +142,15 @@ export class CourseStudioService {
   readonly courseSubtitle = this.courseSubtitleState.asReadonly();
   readonly questions = this.questionsState.asReadonly();
   readonly availableCategories = computed(() =>
-    [...new Set(this.questionsState().flatMap((question) => question.categories))].sort((left, right) => left.localeCompare(right))
+    this.categoriesState()
+      .map((category) => category.name)
+      .sort((left, right) => left.localeCompare(right))
+  );
+  readonly categorySummaries = computed(() =>
+    this.availableCategories().map((categoryName) => ({
+      name: categoryName,
+      questionCount: this.questionsState().filter((question) => question.categories.includes(categoryName)).length
+    }))
   );
   readonly quizzes = computed(() =>
     this.quizzesState().map((quiz) => ({
@@ -200,6 +227,8 @@ export class CourseStudioService {
   }
 
   addQuestion(payload: { categories: string[]; prompt: string; options: string[]; correctOptionIndex: number }): void {
+    this.ensureManagedCategories(payload.categories);
+
     const newQuestion: Question = {
       id: this.createId('question'),
       categories: payload.categories,
@@ -209,6 +238,105 @@ export class CourseStudioService {
     };
 
     this.questionsState.update((questions) => [newQuestion, ...questions]);
+  }
+
+  addCategory(name: string): CategoryMutationResult {
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      return { ok: false, reason: 'empty' };
+    }
+
+    if (this.hasCategory(trimmedName)) {
+      return { ok: false, reason: 'duplicate' };
+    }
+
+    this.categoriesState.update((categories) => [...categories, { id: this.createId('category'), name: trimmedName }]);
+    return { ok: true, name: trimmedName };
+  }
+
+  renameCategory(currentName: string, nextName: string): CategoryMutationResult {
+    const trimmedNextName = nextName.trim();
+    const resolvedCurrentName = this.resolveManagedCategoryName(currentName);
+
+    if (!resolvedCurrentName) {
+      return { ok: false, reason: 'not-found' };
+    }
+
+    if (!trimmedNextName) {
+      return { ok: false, reason: 'empty' };
+    }
+
+    if (
+      !this.isSameCategoryName(resolvedCurrentName, trimmedNextName) &&
+      this.hasCategory(trimmedNextName)
+    ) {
+      return { ok: false, reason: 'duplicate' };
+    }
+
+    this.categoriesState.update((categories) =>
+      categories.map((category) =>
+        this.isSameCategoryName(category.name, resolvedCurrentName) ? { ...category, name: trimmedNextName } : category
+      )
+    );
+    this.questionsState.update((questions) =>
+      questions.map((question) => ({
+        ...question,
+        categories: question.categories.map((category) =>
+          this.isSameCategoryName(category, resolvedCurrentName) ? trimmedNextName : category
+        )
+      }))
+    );
+
+    return { ok: true, name: trimmedNextName };
+  }
+
+  deleteCategory(categoryName: string): CategoryDeleteResult {
+    const resolvedCategoryName = this.resolveManagedCategoryName(categoryName);
+
+    if (!resolvedCategoryName) {
+      return { ok: false, reason: 'not-found' };
+    }
+
+    let reassignedQuestionCount = 0;
+    let fallbackCategoryName: string | null = null;
+
+    this.categoriesState.update((categories) =>
+      categories.filter((category) => !this.isSameCategoryName(category.name, resolvedCategoryName))
+    );
+    this.questionsState.update((questions) =>
+      questions.map((question) => {
+        const remainingCategories = question.categories.filter(
+          (category) => !this.isSameCategoryName(category, resolvedCategoryName)
+        );
+
+        if (remainingCategories.length === question.categories.length) {
+          return question;
+        }
+
+        if (remainingCategories.length) {
+          return {
+            ...question,
+            categories: remainingCategories
+          };
+        }
+
+        const fallbackName = this.ensureFallbackCategory();
+        fallbackCategoryName = fallbackName;
+        reassignedQuestionCount += 1;
+
+        return {
+          ...question,
+          categories: [fallbackName]
+        };
+      })
+    );
+
+    return {
+      ok: true,
+      reassignedQuestionCount,
+      fallbackCategoryName
+    };
   }
 
   deleteQuestion(questionId: string): void {
@@ -404,5 +532,53 @@ export class CourseStudioService {
 
   private createId(prefix: string): string {
     return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private createInitialCategories(questions: Question[]): Category[] {
+    return [...new Set(questions.flatMap((question) => question.categories))]
+      .sort((left, right) => left.localeCompare(right))
+      .map((categoryName) => ({
+        id: this.createId('category'),
+        name: categoryName
+      }));
+  }
+
+  private ensureManagedCategories(categoryNames: string[]): void {
+    const missingCategoryNames = categoryNames.filter((categoryName) => !this.hasCategory(categoryName));
+
+    if (!missingCategoryNames.length) {
+      return;
+    }
+
+    this.categoriesState.update((categories) => [
+      ...categories,
+      ...missingCategoryNames.map((categoryName) => ({
+        id: this.createId('category'),
+        name: categoryName.trim()
+      }))
+    ]);
+  }
+
+  private ensureFallbackCategory(): string {
+    const fallbackName = 'Uncategorized';
+
+    if (!this.hasCategory(fallbackName)) {
+      this.categoriesState.update((categories) => [...categories, { id: this.createId('category'), name: fallbackName }]);
+    }
+
+    return fallbackName;
+  }
+
+  private resolveManagedCategoryName(candidate: string): string | null {
+    const managedCategory = this.categoriesState().find((category) => this.isSameCategoryName(category.name, candidate));
+    return managedCategory?.name ?? null;
+  }
+
+  private hasCategory(candidate: string): boolean {
+    return this.categoriesState().some((category) => this.isSameCategoryName(category.name, candidate));
+  }
+
+  private isSameCategoryName(left: string, right: string): boolean {
+    return left.trim().toLowerCase() === right.trim().toLowerCase();
   }
 }

@@ -25,8 +25,11 @@ export class CourseStudioEditorPageComponent {
   readonly selectedQuestionIds = signal<string[]>([]);
   readonly bankSearch = signal('');
   readonly activeCategoryFilter = signal<string>('All');
-  readonly selectedComposerCategories = signal<string[]>(['Core']);
-  readonly newComposerCategory = signal('');
+  readonly selectedComposerCategories = signal<string[]>(this.studio.availableCategories().slice(0, 1));
+  readonly newManagedCategory = signal('');
+  readonly categoryMessage = signal('');
+  readonly editingCategory = signal<string | null>(null);
+  readonly editingCategoryDraft = signal('');
 
   readonly questionForm = this.formBuilder.nonNullable.group({
     prompt: ['', [Validators.required, Validators.minLength(12)]],
@@ -93,7 +96,6 @@ export class CourseStudioEditorPageComponent {
       optionD: '',
       correctOptionIndex: 0
     });
-    this.newComposerCategory.set('');
   }
 
   createQuiz(): void {
@@ -149,35 +151,103 @@ export class CourseStudioEditorPageComponent {
   }
 
   toggleComposerCategory(category: string): void {
+    this.categoryMessage.set('');
     this.selectedComposerCategories.update((categories) =>
       categories.includes(category) ? categories.filter((entry) => entry !== category) : [...categories, category]
     );
   }
 
-  addNewComposerCategory(): void {
-    const trimmed = this.newComposerCategory().trim();
-
-    if (!trimmed) {
-      return;
-    }
-
-    const alreadySelected = this.selectedComposerCategories().some(
-      (category) => category.toLowerCase() === trimmed.toLowerCase()
-    );
-
-    if (!alreadySelected) {
-      this.selectedComposerCategories.update((categories) => [...categories, trimmed]);
-    }
-
-    this.newComposerCategory.set('');
-  }
-
   removeComposerCategory(category: string): void {
+    this.categoryMessage.set('');
     this.selectedComposerCategories.update((categories) => categories.filter((entry) => entry !== category));
   }
 
-  setNewComposerCategory(value: string): void {
-    this.newComposerCategory.set(value);
+  setNewManagedCategory(value: string): void {
+    this.newManagedCategory.set(value);
+    this.categoryMessage.set('');
+  }
+
+  createCategory(): void {
+    const result = this.studio.addCategory(this.newManagedCategory());
+
+    if (!result.ok) {
+      this.categoryMessage.set(this.resolveCategoryMutationMessage(result.reason));
+      return;
+    }
+
+    this.newManagedCategory.set('');
+    this.categoryMessage.set(`Category "${result.name}" is ready to use.`);
+    this.selectedComposerCategories.update((categories) =>
+      categories.includes(result.name) ? categories : [...categories, result.name]
+    );
+  }
+
+  startCategoryEdit(category: string): void {
+    this.editingCategory.set(category);
+    this.editingCategoryDraft.set(category);
+    this.categoryMessage.set('');
+  }
+
+  setEditingCategoryDraft(value: string): void {
+    this.editingCategoryDraft.set(value);
+    this.categoryMessage.set('');
+  }
+
+  saveCategoryEdit(category: string): void {
+    const result = this.studio.renameCategory(category, this.editingCategoryDraft());
+
+    if (!result.ok) {
+      this.categoryMessage.set(this.resolveCategoryMutationMessage(result.reason));
+      return;
+    }
+
+    if (this.activeCategoryFilter() === category) {
+      this.activeCategoryFilter.set(result.name);
+    }
+
+    this.selectedComposerCategories.update((categories) =>
+      categories.map((entry) => (entry === category ? result.name : entry))
+    );
+    this.editingCategory.set(null);
+    this.editingCategoryDraft.set('');
+    this.categoryMessage.set(`Category renamed to "${result.name}".`);
+  }
+
+  cancelCategoryEdit(): void {
+    this.editingCategory.set(null);
+    this.editingCategoryDraft.set('');
+  }
+
+  deleteCategory(category: string): void {
+    const result = this.studio.deleteCategory(category);
+
+    if (!result.ok) {
+      this.categoryMessage.set('That category is no longer available.');
+      return;
+    }
+
+    if (this.activeCategoryFilter() === category) {
+      this.activeCategoryFilter.set('All');
+    }
+
+    this.selectedComposerCategories.update((categories) => categories.filter((entry) => entry !== category));
+
+    if (!this.selectedComposerCategories().length && this.studio.availableCategories().length) {
+      this.selectedComposerCategories.set(this.studio.availableCategories().slice(0, 1));
+    }
+
+    if (this.editingCategory() === category) {
+      this.cancelCategoryEdit();
+    }
+
+    if (result.reassignedQuestionCount > 0 && result.fallbackCategoryName) {
+      this.categoryMessage.set(
+        `Category removed. ${result.reassignedQuestionCount} question${result.reassignedQuestionCount === 1 ? '' : 's'} moved to "${result.fallbackCategoryName}".`
+      );
+      return;
+    }
+
+    this.categoryMessage.set(`Category "${category}" removed.`);
   }
 
   clearSelectedQuestions(): void {
@@ -190,5 +260,17 @@ export class CourseStudioEditorPageComponent {
 
   trackCategory(index: number, category: string): string {
     return `${index}-${category}`;
+  }
+
+  private resolveCategoryMutationMessage(reason: 'empty' | 'duplicate' | 'not-found'): string {
+    if (reason === 'empty') {
+      return 'Category name cannot be empty.';
+    }
+
+    if (reason === 'duplicate') {
+      return 'That category already exists in this course.';
+    }
+
+    return 'That category is no longer available.';
   }
 }
