@@ -61,6 +61,9 @@ class ShouldUpdateCourseIntegrationTest extends BaseIntegration {
         assertThat(response.description()).isEqualTo(request.description());
         assertThat(response.createdAt()).isEqualTo(createdCourse.createdAt());
         assertThat(response.ownerUserId()).isEqualTo(ownerAuthentication.user().id());
+        assertThat(response.questionCount()).isEqualTo(createdCourse.questionCount());
+        assertThat(response.quizCount()).isEqualTo(createdCourse.quizCount());
+        assertThat(response.progressPercent()).isEqualTo(createdCourse.progressPercent());
     }
 
     @Test
@@ -93,6 +96,9 @@ class ShouldUpdateCourseIntegrationTest extends BaseIntegration {
         assertThat(response.description()).isEqualTo(request.description());
         assertThat(response.createdAt()).isEqualTo(createdCourse.createdAt());
         assertThat(response.ownerUserId()).isEqualTo(ownerAuthentication.user().id());
+        assertThat(response.questionCount()).isEqualTo(createdCourse.questionCount());
+        assertThat(response.quizCount()).isEqualTo(createdCourse.quizCount());
+        assertThat(response.progressPercent()).isEqualTo(createdCourse.progressPercent());
     }
 
     @Test

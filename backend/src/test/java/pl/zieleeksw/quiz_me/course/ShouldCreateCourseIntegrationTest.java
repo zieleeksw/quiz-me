@@ -201,6 +201,9 @@ class ShouldCreateCourseIntegrationTest extends BaseIntegration {
             assertThat(response.description()).isEqualTo(description.trim());
             assertThat(response.createdAt()).isNotNull();
             assertThat(response.ownerUserId()).isNotNull().isGreaterThan(0L);
+            assertThat(response.questionCount()).isEqualTo(response.expectedQuestionCount());
+            assertThat(response.quizCount()).isEqualTo(response.expectedQuizCount());
+            assertThat(response.progressPercent()).isEqualTo(response.expectedProgressPercent());
         } else {
             final TestFieldValidationErrorDto response = readResponse(result, TestFieldValidationErrorDto.class);
 

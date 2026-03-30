@@ -80,6 +80,11 @@ class ShouldFetchCoursesIntegrationTest extends BaseIntegration {
         assertThat(response)
                 .extracting(TestCourseDto::ownerUserId)
                 .contains(secondOwner.user().id(), firstOwner.user().id());
+        assertThat(response).allSatisfy(course -> {
+            assertThat(course.questionCount()).isEqualTo(course.expectedQuestionCount());
+            assertThat(course.quizCount()).isEqualTo(course.expectedQuizCount());
+            assertThat(course.progressPercent()).isEqualTo(course.expectedProgressPercent());
+        });
     }
 
     private void createCourse(
