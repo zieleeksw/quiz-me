@@ -1,9 +1,10 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { ActionButtonComponent } from '../../shared/ui/action-button/action-button.component';
 import { WorkspaceTopbarComponent } from '../../shared/ui/workspace-topbar/workspace-topbar.component';
+import { CoursesCatalogService } from '../dashboard/courses-catalog.service';
 import { CourseStudioService, StudioQuestion } from './course-studio.service';
 
 @Component({
@@ -14,7 +15,12 @@ import { CourseStudioService, StudioQuestion } from './course-studio.service';
 })
 export class CourseStudioEditorPageComponent {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
+  private readonly coursesCatalogService = inject(CoursesCatalogService);
   readonly studio = inject(CourseStudioService);
+  readonly courseSlug = this.route.snapshot.paramMap.get('courseSlug') ?? 'spring-boot-associate';
+  readonly currentCourse = computed(() => this.coursesCatalogService.findBySlug(this.courseSlug));
+  readonly studioLink = ['/courses', this.courseSlug];
 
   readonly selectedQuestionIds = signal<string[]>([]);
   readonly bankSearch = signal('');
@@ -59,6 +65,10 @@ export class CourseStudioEditorPageComponent {
   );
 
   readonly canCreateManualQuiz = computed(() => this.selectedQuestionIds().length > 0);
+
+  constructor() {
+    this.coursesCatalogService.loadCourses();
+  }
 
   addQuestion(): void {
     if (this.questionForm.invalid || !this.selectedComposerCategories().length) {

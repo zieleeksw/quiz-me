@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 @Component({
@@ -10,8 +10,10 @@ import { RouterLink } from '@angular/router';
 export class ActionButtonComponent {
   readonly label = input.required<string>();
   readonly helper = input<string>('');
-  readonly routerLink = input<string | null>(null);
+  readonly routerLink = input<string | unknown[] | null>(null);
   readonly tone = input<'primary' | 'secondary'>('primary');
+  readonly size = input<'regular' | 'compact'>('regular');
   readonly nativeType = input<'button' | 'submit'>('button');
   readonly disabled = input(false);
+  readonly clicked = output<void>();
 }

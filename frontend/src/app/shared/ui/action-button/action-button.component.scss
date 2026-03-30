@@ -63,12 +63,26 @@
   font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 .action-button__helper {
   color: rgba(255, 250, 245, 0.8);
   font-size: 0.82rem;
   line-height: 1.25;
+}
+
+.action-button--compact {
+  padding: 0.84rem 1.28rem;
+  border-radius: 22px;
+}
+
+.action-button--compact .action-button__label {
+  font-size: 0.98rem;
+}
+
+.action-button--compact .action-button__helper {
+  font-size: 0.76rem;
 }
 
 @media (max-width: 680px) {

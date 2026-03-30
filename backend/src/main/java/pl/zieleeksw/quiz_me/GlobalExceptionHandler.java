@@ -2,6 +2,7 @@ package pl.zieleeksw.quiz_me;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import pl.zieleeksw.quiz_me.auth.domain.InvalidRefreshTokenException;
+import pl.zieleeksw.quiz_me.course.domain.CourseNotFoundException;
 import pl.zieleeksw.quiz_me.user.domain.EmailAlreadyExistsException;
 
 import java.util.List;
@@ -49,6 +51,18 @@ class GlobalExceptionHandler {
                 .body(response);
     }
 
+    @ExceptionHandler(CourseNotFoundException.class)
+    ResponseEntity<RuntimeExceptionDto> handleCourseNotFoundException(
+            final CourseNotFoundException ex) {
+        final RuntimeExceptionDto response = new RuntimeExceptionDto(
+                ex.getClass().getSimpleName(),
+                ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(response);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     ResponseEntity<RuntimeExceptionDto> handleRuntimeException(
             final RuntimeException ex) {
@@ -85,6 +99,13 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthorizationDeniedException.class)
     ResponseEntity<Void> handleAuthorizationDeniedException() {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .build();
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<Void> handleAccessDeniedException() {
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
                 .build();

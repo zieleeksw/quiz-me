@@ -31,14 +31,24 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
-    path: 'studio',
+    path: 'courses/:courseSlug',
     component: CourseStudioPageComponent,
     canActivate: [authGuard]
   },
   {
-    path: 'studio/editor',
+    path: 'courses/:courseSlug/editor',
     component: CourseStudioEditorPageComponent,
     canActivate: [authGuard]
+  },
+  {
+    path: 'studio',
+    redirectTo: 'courses/spring-boot-associate',
+    pathMatch: 'full'
+  },
+  {
+    path: 'studio/editor',
+    redirectTo: 'courses/spring-boot-associate/editor',
+    pathMatch: 'full'
   },
   {
     path: '**',

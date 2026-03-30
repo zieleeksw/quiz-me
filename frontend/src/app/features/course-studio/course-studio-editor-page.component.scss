@@ -1,4 +1,4 @@
-@import './course-studio-page.component.scss';
+@use './course-studio-page.component.scss' as *;
 
 .studio-editor-layout {
   display: grid;

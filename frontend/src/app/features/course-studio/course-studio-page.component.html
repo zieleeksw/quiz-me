@@ -4,13 +4,13 @@
   <section class="studio-hero">
     <div>
       <p class="app-eyebrow">Client Preview</p>
-      <h1 class="studio-title">{{ studio.courseTitle() }}</h1>
-      <p class="studio-copy">This view shows the learner-facing side of the course: published quizzes, shared progress, and a clean solving experience.</p>
+      <h1 class="studio-title">{{ currentCourse()?.title ?? studio.courseTitle() }}</h1>
+      <p class="studio-copy">{{ currentCourse()?.subtitle ?? studio.courseSubtitle() }}</p>
     </div>
 
     <div class="studio-hero__actions">
       <app-action-button label="Back to Courses" routerLink="/courses" tone="secondary" />
-      <app-action-button label="Open Quiz Creator" routerLink="/studio/editor" />
+      <app-action-button label="Open Quiz Creator" [routerLink]="editorLink" />
     </div>
   </section>
 

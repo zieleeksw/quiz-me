@@ -4,12 +4,12 @@
   <section class="studio-hero">
     <div>
       <p class="app-eyebrow">Creator Panel</p>
-      <h1 class="studio-title">{{ studio.courseTitle() }}</h1>
+      <h1 class="studio-title">{{ currentCourse()?.title ?? studio.courseTitle() }}</h1>
       <p class="studio-copy">Design the course bank once, then package learner-facing quizzes from the same shared pool without scrolling through the entire editor.</p>
     </div>
 
     <div class="studio-hero__actions">
-      <app-action-button label="Back to Studio" routerLink="/studio" tone="secondary" />
+      <app-action-button label="Back to Studio" [routerLink]="studioLink" tone="secondary" />
     </div>
   </section>
 

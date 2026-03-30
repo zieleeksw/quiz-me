@@ -2,25 +2,103 @@
   <app-workspace-topbar />
 
   <div class="app-panel courses-panel">
-      <section class="courses-hero">
-        <div>
-          <p class="app-eyebrow">Courses</p>
-          <h1 class="app-title">Pick the certification path you want to train.</h1>
-          <p class="app-copy courses-hero__copy">
-            Your account is ready, so this page becomes the entry point to every course available to the learner.
-          </p>
-        </div>
-      </section>
+    <section class="courses-hero">
+      <div class="courses-hero__content">
+        <p class="app-eyebrow">Courses</p>
+        <h1 class="app-title courses-hero__title">Browse every available course, then build your own.</h1>
+        <p class="app-copy courses-hero__copy">
+          The catalog is shared across all learners, while each course still keeps a clear owner for editing and management.
+        </p>
+      </div>
 
+      <div class="courses-hero__actions">
+        <app-action-button label="Create Course" size="compact" (clicked)="openCreateEditor()" />
+      </div>
+    </section>
+
+    @if (isEditorVisible()) {
+      <section class="course-editor">
+        <div class="course-editor__header">
+          <div>
+            <p class="app-eyebrow">{{ editorMode() === 'create' ? 'New Course' : 'Edit Course' }}</p>
+            <h2>{{ editorMode() === 'create' ? 'Create a new course' : 'Update course details' }}</h2>
+          </div>
+
+          <app-action-button label="Cancel" tone="secondary" size="compact" (clicked)="cancelEditor()" />
+        </div>
+
+        <form class="app-form" [formGroup]="courseForm" (ngSubmit)="saveCourse()">
+          <div class="app-field">
+            <label for="course-name">Course name</label>
+            <input
+              id="course-name"
+              class="app-input"
+              [class.app-input--invalid]="hasFieldError('name')"
+              formControlName="name"
+              placeholder="Spring Boot Associate"
+            />
+            @if (fieldError('name'); as error) {
+              <p class="app-error-text">{{ error }}</p>
+            }
+          </div>
+
+          <div class="app-field">
+            <label for="course-description">Description</label>
+            <textarea
+              id="course-description"
+              class="app-input course-editor__textarea"
+              [class.app-input--invalid]="hasFieldError('description')"
+              formControlName="description"
+              placeholder="Describe what this course helps learners master."
+            ></textarea>
+            @if (fieldError('description'); as error) {
+              <p class="app-error-text">{{ error }}</p>
+            }
+          </div>
+
+          @if (formMessage(); as message) {
+            <p class="app-form-message">{{ message }}</p>
+          }
+
+          <div class="app-actions-row">
+            <app-action-button
+              [label]="isSaving() ? 'Saving...' : (editorMode() === 'create' ? 'Create Course' : 'Save Changes')"
+              [routerLink]="null"
+              [nativeType]="'submit'"
+              size="compact"
+              [disabled]="isSaving()"
+            />
+          </div>
+        </form>
+      </section>
+    }
+
+    @if (loadError(); as error) {
+      <section class="course-feedback course-feedback--error">
+        <strong>Unable to load courses.</strong>
+        <p>{{ error }}</p>
+      </section>
+    }
+
+    @if (isLoading() && !courses().length) {
+      <section class="course-feedback">
+        <strong>Loading courses...</strong>
+      </section>
+    } @else if (courses().length) {
       <section class="courses-grid">
-        @for (course of courses; track course.title) {
-          <article class="course-card" [class.course-card--available]="course.status === 'available'">
+        @for (course of courses(); track trackCourse($index, course)) {
+          <article class="course-card course-card--available">
             <div class="course-card__top">
-              <span class="course-card__badge" [class.course-card__badge--secondary]="course.accent === 'secondary'">
-                {{ course.status === 'available' ? 'Available now' : 'Coming soon' }}
-              </span>
+              <span class="course-card__badge course-card__badge--secondary">Available now</span>
               <h2>{{ course.title }}</h2>
               <p>{{ course.subtitle }}</p>
+              <div class="course-card__meta">
+                <p class="course-card__owner">
+                  <span>Owner</span>
+                  <strong>{{ resolveOwnerLabel(course) }}</strong>
+                </p>
+                <p class="course-card__created">Created {{ course.createdAt | date: 'dd MMM yyyy' }}</p>
+              </div>
             </div>
 
             <div class="course-card__stats">
@@ -36,29 +114,25 @@
 
               <div class="course-card__stat">
                 <span>Progress</span>
-                <strong>{{ course.completion }}%</strong>
+                <strong>{{ course.progressPercent }}%</strong>
               </div>
             </div>
 
             <div class="course-card__footer">
-              @if (course.route) {
-                <app-action-button
-                  label="Open Course"
-                  [routerLink]="course.route"
-                  [tone]="course.accent"
-                />
-              } @else {
-                <app-action-button
-                  label="Coming Soon"
-                  [routerLink]="null"
-                  [nativeType]="'button'"
-                  [disabled]="true"
-                  [tone]="course.accent"
-                />
+              <app-action-button label="Open Course" [routerLink]="resolveCourseLink(course)" tone="secondary" size="compact" />
+
+              @if (canEditCourse(course)) {
+                <app-action-button label="Edit Course" size="compact" (clicked)="openEditEditor(course)" />
               }
             </div>
           </article>
         }
       </section>
+    } @else if (isLoaded()) {
+      <section class="course-feedback">
+        <strong>No courses yet.</strong>
+        <p>Create the first course and it will immediately appear in the shared catalog.</p>
+      </section>
+    }
   </div>
 </main>
