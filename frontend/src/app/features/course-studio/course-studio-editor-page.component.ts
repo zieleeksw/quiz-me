@@ -21,6 +21,7 @@ export class CourseStudioEditorPageComponent {
   readonly courseSlug = this.route.snapshot.paramMap.get('courseSlug') ?? 'spring-boot-associate';
   readonly currentCourse = computed(() => this.coursesCatalogService.findBySlug(this.courseSlug));
   readonly studioLink = ['/courses', this.courseSlug];
+  readonly activeTab = signal<'questions' | 'quizzes' | 'categories'>('questions');
 
   readonly selectedQuestionIds = signal<string[]>([]);
   readonly bankSearch = signal('');
@@ -71,6 +72,10 @@ export class CourseStudioEditorPageComponent {
 
   constructor() {
     this.coursesCatalogService.loadCourses();
+  }
+
+  setActiveTab(tab: 'questions' | 'quizzes' | 'categories'): void {
+    this.activeTab.set(tab);
   }
 
   addQuestion(): void {

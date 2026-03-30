@@ -7,6 +7,53 @@
   align-items: start;
 }
 
+.studio-tabbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.studio-tab {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 252, 247, 0.76);
+  box-shadow: var(--shadow-soft);
+  padding: 1rem 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.studio-tab:hover {
+  transform: translateY(-1px);
+}
+
+.studio-tab--active {
+  border-color: rgba(34, 108, 99, 0.32);
+  background: linear-gradient(145deg, rgba(242, 248, 245, 0.92), rgba(255, 252, 247, 0.96));
+}
+
+.studio-tab__eyebrow {
+  color: var(--color-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.studio-tab strong {
+  font-size: 1.15rem;
+  line-height: 1.15;
+}
+
+.studio-tab small {
+  color: var(--color-ink-800);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
 .studio-builder-rail {
   display: grid;
   gap: 1rem;
@@ -179,11 +226,16 @@
   gap: 0.75rem;
 }
 
+.studio-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .studio-empty--compact {
   padding: 1rem;
 }
 
 @media (max-width: 1180px) {
+  .studio-tabbar,
   .studio-editor-layout {
     grid-template-columns: 1fr;
   }
