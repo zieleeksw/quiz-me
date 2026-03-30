@@ -53,6 +53,15 @@ public class CourseFacade {
                 .toList();
     }
 
+    public CourseDto findCourseByIdOrThrow(
+            final Long id
+    ) {
+        final CourseEntity entity = courseRepository.findById(id)
+                .orElseThrow(() -> CourseNotFoundException.forId(id));
+
+        return mapToDto(entity);
+    }
+
     public CourseDto updateCourse(
             final Long id,
             final String name,

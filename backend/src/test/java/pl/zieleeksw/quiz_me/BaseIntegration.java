@@ -37,6 +37,9 @@ public class BaseIntegration {
 
     @AfterEach
     void cleanDatabase() {
+        jdbcTemplate.execute("DELETE FROM question_answers");
+        jdbcTemplate.execute("DELETE FROM question_versions");
+        jdbcTemplate.execute("DELETE FROM questions");
         jdbcTemplate.execute("DELETE FROM courses");
         jdbcTemplate.execute("DELETE FROM users WHERE email != 'admin@quiz.com'");
     }
