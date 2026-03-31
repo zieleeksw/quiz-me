@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import pl.zieleeksw.quiz_me.auth.domain.InvalidRefreshTokenException;
+import pl.zieleeksw.quiz_me.category.domain.CategoryNotFoundException;
 import pl.zieleeksw.quiz_me.course.domain.CourseNotFoundException;
 import pl.zieleeksw.quiz_me.question.domain.QuestionNotFoundException;
 import pl.zieleeksw.quiz_me.user.domain.EmailAlreadyExistsException;
@@ -55,6 +56,18 @@ class GlobalExceptionHandler {
     @ExceptionHandler(CourseNotFoundException.class)
     ResponseEntity<RuntimeExceptionDto> handleCourseNotFoundException(
             final CourseNotFoundException ex) {
+        final RuntimeExceptionDto response = new RuntimeExceptionDto(
+                ex.getClass().getSimpleName(),
+                ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(response);
+    }
+
+    @ExceptionHandler(CategoryNotFoundException.class)
+    ResponseEntity<RuntimeExceptionDto> handleCategoryNotFoundException(
+            final CategoryNotFoundException ex) {
         final RuntimeExceptionDto response = new RuntimeExceptionDto(
                 ex.getClass().getSimpleName(),
                 ex.getMessage());

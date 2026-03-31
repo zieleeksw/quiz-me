@@ -10,6 +10,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import pl.zieleeksw.quiz_me.BaseIntegration;
 import pl.zieleeksw.quiz_me.auth.AuthenticationApi;
+import pl.zieleeksw.quiz_me.category.TestCategoryDto;
+import pl.zieleeksw.quiz_me.category.TestCreateCategoryRequest;
 import pl.zieleeksw.quiz_me.course.TestCourseDto;
 import pl.zieleeksw.quiz_me.course.TestCreateCourseRequest;
 
@@ -56,9 +58,11 @@ class ShouldFetchQuestionsIntegrationTest extends BaseIntegration {
                         "A focused course for architecture, persistence, and testing drills."
                 )
         );
-        final TestQuestionDto createdQuestion = createQuestion(course.id(), ownerAuthentication.accessToken().value(), initialQuestionRequest());
+        final TestCategoryDto webCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Web");
+        final TestCategoryDto serializationCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Serialization");
+        final TestQuestionDto createdQuestion = createQuestion(course.id(), ownerAuthentication.accessToken().value(), initialQuestionRequest(webCategory.id()));
 
-        updateQuestion(course.id(), createdQuestion.id(), ownerAuthentication.accessToken().value(), updatedQuestionRequest());
+        updateQuestion(course.id(), createdQuestion.id(), ownerAuthentication.accessToken().value(), updatedQuestionRequest(serializationCategory.id()));
 
         final String learnerAccessToken = authenticationApi.registerAndLogin().accessToken().value();
         final ResultActions result = mockMvc.perform(get("/courses/{courseId}/questions", course.id())
@@ -72,6 +76,9 @@ class ShouldFetchQuestionsIntegrationTest extends BaseIntegration {
         assertThat(response.getFirst().id()).isEqualTo(createdQuestion.id());
         assertThat(response.getFirst().currentVersionNumber()).isEqualTo(2);
         assertThat(response.getFirst().prompt()).isEqualTo("Which bean usually resolves outgoing JSON serialization in Spring MVC?");
+        assertThat(response.getFirst().categories())
+                .extracting(TestQuestionCategoryDto::name)
+                .containsExactly("Serialization");
         assertThat(response.getFirst().answers())
                 .extracting(TestQuestionAnswerDto::content)
                 .containsExactly("HttpMessageConverter", "TaskExecutor");
@@ -83,24 +90,40 @@ class ShouldFetchQuestionsIntegrationTest extends BaseIntegration {
                 .isEqualTo("HttpMessageConverter");
     }
 
-    private TestCreateQuestionRequest initialQuestionRequest() {
+    private TestCreateQuestionRequest initialQuestionRequest(final Long categoryId) {
         return new TestCreateQuestionRequest(
                 "Which bean is responsible for handling incoming REST requests?",
                 List.of(
                         new TestQuestionAnswerRequest("DispatcherServlet", true),
                         new TestQuestionAnswerRequest("EntityManager", false)
-                )
+                ),
+                List.of(categoryId)
         );
     }
 
-    private TestUpdateQuestionRequest updatedQuestionRequest() {
+    private TestUpdateQuestionRequest updatedQuestionRequest(final Long categoryId) {
         return new TestUpdateQuestionRequest(
                 "Which bean usually resolves outgoing JSON serialization in Spring MVC?",
                 List.of(
                         new TestQuestionAnswerRequest("HttpMessageConverter", true),
                         new TestQuestionAnswerRequest("TaskExecutor", false)
-                )
+                ),
+                List.of(categoryId)
         );
+    }
+
+    private TestCategoryDto createCategory(
+            final Long courseId,
+            final String accessToken,
+            final String name
+    ) throws Exception {
+        final MvcResult result = mockMvc.perform(post("/courses/{courseId}/categories", courseId)
+                        .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new TestCreateCategoryRequest(name))))
+                .andReturn();
+
+        return objectMapper.readValue(result.getResponse().getContentAsString(), TestCategoryDto.class);
     }
 
     private TestCourseDto createCourse(

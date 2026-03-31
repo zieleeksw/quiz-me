@@ -9,6 +9,7 @@ public record TestQuestionVersionDto(
         int versionNumber,
         Instant createdAt,
         String prompt,
+        List<TestQuestionCategoryDto> categories,
         List<TestQuestionAnswerDto> answers
 ) {
 }

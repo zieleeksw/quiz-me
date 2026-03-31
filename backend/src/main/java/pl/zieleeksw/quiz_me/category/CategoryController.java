@@ -1,84 +1,89 @@
-package pl.zieleeksw.quiz_me.question;
+package pl.zieleeksw.quiz_me.category;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import pl.zieleeksw.quiz_me.question.domain.QuestionFacade;
+import pl.zieleeksw.quiz_me.category.domain.CategoryFacade;
 import pl.zieleeksw.quiz_me.user.UserDto;
 import pl.zieleeksw.quiz_me.user.domain.UserFacade;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/courses/{courseId}/questions")
-class QuestionController {
+@RequestMapping("/courses/{courseId}/categories")
+class CategoryController {
 
-    private final QuestionFacade questionFacade;
+    private final CategoryFacade categoryFacade;
     private final UserFacade userFacade;
 
-    QuestionController(
-            final QuestionFacade questionFacade,
+    CategoryController(
+            final CategoryFacade categoryFacade,
             final UserFacade userFacade
     ) {
-        this.questionFacade = questionFacade;
+        this.categoryFacade = categoryFacade;
         this.userFacade = userFacade;
     }
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    List<QuestionDto> fetchAll(
+    List<CategoryDto> fetchAll(
             @PathVariable final Long courseId
     ) {
-        return questionFacade.fetchQuestions(courseId);
-    }
-
-    @GetMapping("/{questionId}/versions")
-    @PreAuthorize("isAuthenticated()")
-    List<QuestionVersionDto> fetchVersions(
-            @PathVariable final Long courseId,
-            @PathVariable final Long questionId
-    ) {
-        return questionFacade.fetchQuestionVersions(courseId, questionId);
+        return categoryFacade.fetchActiveCategories(courseId);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("isAuthenticated()")
-    QuestionDto create(
+    CategoryDto create(
             final Authentication authentication,
             @PathVariable final Long courseId,
-            @RequestBody @Valid final CreateQuestionRequest request
+            @RequestBody @Valid final CreateCategoryRequest request
     ) {
         final UserDto currentUser = userFacade.findUserByEmailOrThrow(authentication.getName());
 
-        return questionFacade.createQuestion(
+        return categoryFacade.createCategory(
                 courseId,
-                request.prompt(),
-                request.answers(),
-                request.categoryIds(),
+                request.name(),
                 currentUser.id(),
                 isAdmin(authentication)
         );
     }
 
-    @PutMapping("/{questionId}")
+    @PutMapping("/{categoryId}")
     @PreAuthorize("isAuthenticated()")
-    QuestionDto update(
+    CategoryDto update(
             final Authentication authentication,
             @PathVariable final Long courseId,
-            @PathVariable final Long questionId,
-            @RequestBody @Valid final UpdateQuestionRequest request
+            @PathVariable final Long categoryId,
+            @RequestBody @Valid final UpdateCategoryRequest request
     ) {
         final UserDto currentUser = userFacade.findUserByEmailOrThrow(authentication.getName());
 
-        return questionFacade.updateQuestion(
+        return categoryFacade.updateCategory(
                 courseId,
-                questionId,
-                request.prompt(),
-                request.answers(),
-                request.categoryIds(),
+                categoryId,
+                request.name(),
+                currentUser.id(),
+                isAdmin(authentication)
+        );
+    }
+
+    @DeleteMapping("/{categoryId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("isAuthenticated()")
+    void delete(
+            final Authentication authentication,
+            @PathVariable final Long courseId,
+            @PathVariable final Long categoryId
+    ) {
+        final UserDto currentUser = userFacade.findUserByEmailOrThrow(authentication.getName());
+
+        categoryFacade.deleteCategory(
+                courseId,
+                categoryId,
                 currentUser.id(),
                 isAdmin(authentication)
         );

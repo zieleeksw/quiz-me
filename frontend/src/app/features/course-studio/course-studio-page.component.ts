@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, effect, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { ActionButtonComponent } from '../../shared/ui/action-button/action-button.component';
@@ -23,5 +23,13 @@ export class CourseStudioPageComponent {
 
   constructor() {
     this.coursesCatalogService.loadCourses();
+
+    effect(() => {
+      const course = this.currentCourse();
+
+      if (course) {
+        this.studio.loadCourseContext(course.id);
+      }
+    });
   }
 }

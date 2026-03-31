@@ -11,6 +11,8 @@ import org.springframework.test.web.servlet.ResultActions;
 import pl.zieleeksw.quiz_me.BaseIntegration;
 import pl.zieleeksw.quiz_me.TestRuntimeExceptionDto;
 import pl.zieleeksw.quiz_me.auth.AuthenticationApi;
+import pl.zieleeksw.quiz_me.category.TestCategoryDto;
+import pl.zieleeksw.quiz_me.category.TestCreateCategoryRequest;
 import pl.zieleeksw.quiz_me.course.TestCourseDto;
 import pl.zieleeksw.quiz_me.course.TestCreateCourseRequest;
 
@@ -46,16 +48,18 @@ class ShouldUpdateQuestionIntegrationTest extends BaseIntegration {
                         "A focused course for filters, JWTs, authorization rules, and access control."
                 )
         );
+        final TestCategoryDto httpCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "HTTP");
+        final TestCategoryDto annotationsCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Annotations");
         final TestQuestionDto createdQuestion = createQuestion(
                 course.id(),
                 ownerAuthentication.accessToken().value(),
-                initialQuestionRequest()
+                initialQuestionRequest(httpCategory.id())
         );
 
         final ResultActions updateResult = mockMvc.perform(put("/courses/{courseId}/questions/{questionId}", course.id(), createdQuestion.id())
                 .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(updatedQuestionRequest())));
+                .content(objectMapper.writeValueAsString(updatedQuestionRequest(annotationsCategory.id()))));
 
         final TestQuestionDto updatedQuestion = readResponse(updateResult, TestQuestionDto.class);
         final ResultActions versionsResult = mockMvc.perform(get("/courses/{courseId}/questions/{questionId}/versions", course.id(), createdQuestion.id())
@@ -71,6 +75,9 @@ class ShouldUpdateQuestionIntegrationTest extends BaseIntegration {
         assertThat(updatedQuestion.createdAt()).isEqualTo(createdQuestion.createdAt());
         assertThat(updatedQuestion.updatedAt()).isAfterOrEqualTo(createdQuestion.updatedAt());
         assertThat(updatedQuestion.prompt()).isEqualTo("Which annotation is typically used to bind a method to GET requests?");
+        assertThat(updatedQuestion.categories())
+                .extracting(TestQuestionCategoryDto::name)
+                .containsExactly("Annotations");
         assertThat(updatedQuestion.answers())
                 .extracting(TestQuestionAnswerDto::content)
                 .containsExactly("@GetMapping", "@Bean");
@@ -78,11 +85,17 @@ class ShouldUpdateQuestionIntegrationTest extends BaseIntegration {
         assertThat(versions).hasSize(2);
         assertThat(versions.getFirst().versionNumber()).isEqualTo(2);
         assertThat(versions.get(0).prompt()).isEqualTo("Which annotation is typically used to bind a method to GET requests?");
+        assertThat(versions.get(0).categories())
+                .extracting(TestQuestionCategoryDto::name)
+                .containsExactly("Annotations");
         assertThat(versions.get(0).answers())
                 .extracting(TestQuestionAnswerDto::content)
                 .containsExactly("@GetMapping", "@Bean");
         assertThat(versions.get(1).versionNumber()).isEqualTo(1);
         assertThat(versions.get(1).prompt()).isEqualTo("Which annotation is typically used to expose an HTTP endpoint class?");
+        assertThat(versions.get(1).categories())
+                .extracting(TestQuestionCategoryDto::name)
+                .containsExactly("HTTP");
         assertThat(versions.get(1).answers())
                 .extracting(TestQuestionAnswerDto::content)
                 .containsExactly("@RestController", "@Repository");
@@ -98,17 +111,18 @@ class ShouldUpdateQuestionIntegrationTest extends BaseIntegration {
                         "A focused course for architecture, persistence, and testing drills."
                 )
         );
+        final TestCategoryDto webCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Web");
         final TestQuestionDto createdQuestion = createQuestion(
                 course.id(),
                 ownerAuthentication.accessToken().value(),
-                initialQuestionRequest()
+                initialQuestionRequest(webCategory.id())
         );
         final String anotherUserAccessToken = authenticationApi.registerAndLogin().accessToken().value();
 
         final ResultActions result = mockMvc.perform(put("/courses/{courseId}/questions/{questionId}", course.id(), createdQuestion.id())
                 .header(AUTHORIZATION_HEADER, bearerToken(anotherUserAccessToken))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(updatedQuestionRequest())));
+                .content(objectMapper.writeValueAsString(updatedQuestionRequest(webCategory.id()))));
 
         itShouldReturnForbiddenStatus(result);
         itShouldHaveEmptyResponseBody(result);
@@ -138,24 +152,40 @@ class ShouldUpdateQuestionIntegrationTest extends BaseIntegration {
         ));
     }
 
-    private TestCreateQuestionRequest initialQuestionRequest() {
+    private TestCreateQuestionRequest initialQuestionRequest(final Long categoryId) {
         return new TestCreateQuestionRequest(
                 "Which annotation is typically used to expose an HTTP endpoint class?",
                 List.of(
                         new TestQuestionAnswerRequest("@RestController", true),
                         new TestQuestionAnswerRequest("@Repository", false)
-                )
+                ),
+                List.of(categoryId)
         );
     }
 
-    private TestUpdateQuestionRequest updatedQuestionRequest() {
+    private TestUpdateQuestionRequest updatedQuestionRequest(final Long categoryId) {
         return new TestUpdateQuestionRequest(
                 "Which annotation is typically used to bind a method to GET requests?",
                 List.of(
                         new TestQuestionAnswerRequest("@GetMapping", true),
                         new TestQuestionAnswerRequest("@Bean", false)
-                )
+                ),
+                List.of(categoryId)
         );
+    }
+
+    private TestCategoryDto createCategory(
+            final Long courseId,
+            final String accessToken,
+            final String name
+    ) throws Exception {
+        final MvcResult result = mockMvc.perform(post("/courses/{courseId}/categories", courseId)
+                        .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new TestCreateCategoryRequest(name))))
+                .andReturn();
+
+        return objectMapper.readValue(result.getResponse().getContentAsString(), TestCategoryDto.class);
     }
 
     private TestCourseDto createCourse(

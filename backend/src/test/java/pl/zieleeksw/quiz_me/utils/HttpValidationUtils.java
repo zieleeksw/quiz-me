@@ -21,6 +21,11 @@ public class HttpValidationUtils {
         result.andExpect(created);
     }
 
+    public static void itShouldReturnNoContentStatus(final ResultActions result) throws Exception {
+        final ResultMatcher noContent = status().isNoContent();
+        result.andExpect(noContent);
+    }
+
     public static void itShouldReturnBadRequestStatus(final ResultActions result) throws Exception {
         final ResultMatcher badRequest = status().isBadRequest();
         result.andExpect(badRequest);

@@ -5,13 +5,27 @@
     <div>
       <p class="app-eyebrow">Creator Panel</p>
       <h1 class="studio-title">{{ currentCourse()?.title ?? studio.courseTitle() }}</h1>
-      <p class="studio-copy">Design the course bank once, then shape quizzes and categories inside focused tabs instead of one overloaded editor.</p>
+      <p class="studio-copy">
+        Design the course bank once, then shape quizzes and categories inside focused tabs instead of one overloaded editor.
+      </p>
     </div>
 
     <div class="studio-hero__actions">
       <app-action-button label="Back to Studio" [routerLink]="studioLink" tone="secondary" />
     </div>
   </section>
+
+  @if (studio.loadError()) {
+    <section class="studio-status studio-status--error">
+      <p>{{ studio.loadError() }}</p>
+    </section>
+  }
+
+  @if (studio.isLoading() && !studio.isLoaded()) {
+    <section class="studio-status">
+      <p>Loading course data...</p>
+    </section>
+  }
 
   <section class="studio-tabbar">
     <button
@@ -56,7 +70,9 @@
             <p class="app-eyebrow">Question Bank</p>
             <h2>Filter And Curate Questions</h2>
           </div>
-          <p class="studio-card__hint">Use this space for authoring work: search, filter, and keep the course question bank clean.</p>
+          <p class="studio-card__hint">
+            Search by wording, narrow the bank by category, then open edit or version history for the exact question you want.
+          </p>
         </div>
 
         <div class="studio-bank-toolbar">
@@ -93,14 +109,14 @@
             All categories
           </button>
 
-          @for (category of studio.availableCategories(); track trackCategory($index, category)) {
+          @for (category of studio.categories(); track category.id) {
             <button
               class="studio-chip"
               type="button"
-              [class.studio-chip--active]="activeCategoryFilter() === category"
-              (click)="setCategoryFilter(category)"
+              [class.studio-chip--active]="activeCategoryFilter() === category.id"
+              (click)="setCategoryFilter(category.id)"
             >
-              {{ category }}
+              {{ category.name }}
             </button>
           }
         </div>
@@ -111,23 +127,29 @@
               <div class="studio-item__top">
                 <div>
                   <div class="studio-inline-badges">
-                    @for (category of question.categories; track trackCategory($index, category)) {
-                      <span class="studio-badge">{{ category }}</span>
+                    @for (category of question.categories; track category.id) {
+                      <span class="studio-badge">{{ category.name }}</span>
                     }
                   </div>
                   <h3>{{ question.prompt }}</h3>
                 </div>
 
-                <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="deleteQuestion(question.id)">
-                  Delete
-                </button>
+                <div class="studio-item__actions">
+                  <button class="studio-inline-button" type="button" (click)="openQuestionHistory(question.id)">History</button>
+                  <button class="studio-inline-button" type="button" (click)="startQuestionEdit(question)">Edit</button>
+                </div>
               </div>
 
               <div class="studio-item__footer">
                 <div class="studio-meta-group">
+                  <span class="studio-meta">Version {{ question.versionNumber }}</span>
                   <span class="studio-meta">{{ question.options.length }} options</span>
-                  <span class="studio-meta">Used in {{ studio.questionUsageCount(question.id) }} manual quiz{{ studio.questionUsageCount(question.id) === 1 ? '' : 'zes' }}</span>
+                  <span class="studio-meta">
+                    Used in {{ studio.questionUsageCount(question.id) }} manual quiz{{ studio.questionUsageCount(question.id) === 1 ? '' : 'zes' }}
+                  </span>
                 </div>
+
+                <span class="studio-meta">Updated {{ question.updatedAt | date: 'd MMM yyyy, HH:mm' }}</span>
               </div>
             </article>
           } @empty {
@@ -143,37 +165,45 @@
         <article class="studio-card">
           <div class="studio-card__header">
             <div>
-              <p class="app-eyebrow">Question Composer</p>
-              <h2>Create New Question</h2>
+              <p class="app-eyebrow">{{ editingQuestionId() ? 'Question Versioning' : 'Question Composer' }}</p>
+              <h2>{{ editingQuestionId() ? 'Save A New Question Version' : 'Create New Question' }}</h2>
             </div>
-            <p class="studio-card__hint">Pick from the managed course categories, then write the question once the taxonomy already makes sense.</p>
+            <p class="studio-card__hint">
+              Categories now come from the managed taxonomy, and every edit is saved as a fresh backend version instead of overwriting history.
+            </p>
           </div>
 
-          <form class="studio-form" [formGroup]="questionForm" (ngSubmit)="addQuestion()">
+          @if (questionMessage()) {
+            <p class="studio-meta studio-meta--accent">{{ questionMessage() }}</p>
+          }
+
+          <form class="studio-form" [formGroup]="questionForm" (ngSubmit)="saveQuestion()">
             <div class="app-field">
               <label>Categories</label>
 
-              @if (studio.availableCategories().length) {
+              @if (studio.categories().length) {
                 <div class="studio-chip-row studio-chip-row--tight">
-                  @for (category of studio.availableCategories(); track trackCategory($index, category)) {
+                  @for (category of studio.categories(); track category.id) {
                     <button
                       class="studio-chip"
                       type="button"
-                      [class.studio-chip--active]="selectedComposerCategories().includes(category)"
-                      (click)="toggleComposerCategory(category)"
+                      [class.studio-chip--active]="selectedComposerCategoryIds().includes(category.id)"
+                      (click)="toggleComposerCategory(category.id)"
                     >
-                      {{ category }}
+                      {{ category.name }}
                     </button>
                   }
                 </div>
 
-                <div class="studio-inline-badges">
-                  @for (category of selectedComposerCategories(); track trackCategory($index, category)) {
-                    <button class="studio-chip studio-chip--active" type="button" (click)="removeComposerCategory(category)">
-                      {{ category }} x
-                    </button>
-                  }
-                </div>
+                @if (selectedComposerCategories().length) {
+                  <div class="studio-inline-badges">
+                    @for (category of selectedComposerCategories(); track category.id) {
+                      <button class="studio-chip studio-chip--active" type="button" (click)="removeComposerCategory(category.id)">
+                        {{ category.name }} x
+                      </button>
+                    }
+                  </div>
+                }
               } @else {
                 <div class="studio-empty studio-empty--compact">
                   <h3>Create a category first.</h3>
@@ -184,7 +214,12 @@
 
             <div class="app-field">
               <label for="question-prompt">Question prompt</label>
-              <textarea id="question-prompt" class="app-input studio-textarea" formControlName="prompt" placeholder="What should the learner answer?"></textarea>
+              <textarea
+                id="question-prompt"
+                class="app-input studio-textarea"
+                formControlName="prompt"
+                placeholder="What should the learner answer?"
+              ></textarea>
             </div>
 
             <div class="studio-form__grid">
@@ -220,9 +255,93 @@
             </div>
 
             <div class="app-actions-row">
-              <app-action-button label="Add Question To Course" [routerLink]="null" [nativeType]="'submit'" />
+              <app-action-button
+                [label]="editingQuestionId() ? 'Save New Version' : 'Add Question To Course'"
+                [routerLink]="null"
+                [nativeType]="'button'"
+                [disabled]="isSavingQuestion() || studio.isLoading() || !studio.activeCourseId()"
+                (clicked)="saveQuestion()"
+              />
+
+              @if (editingQuestionId()) {
+                <app-action-button
+                  label="Cancel Edit"
+                  [routerLink]="null"
+                  [nativeType]="'button'"
+                  tone="secondary"
+                  size="compact"
+                  (clicked)="cancelQuestionEdit()"
+                />
+              }
             </div>
           </form>
+        </article>
+
+        <article class="studio-card">
+          <div class="studio-card__header">
+            <div>
+              <p class="app-eyebrow">Version History</p>
+              <h2>Inspect Previous Question States</h2>
+            </div>
+            <p class="studio-card__hint">Open any question history from the bank to see older prompts, answer sets, and category assignments.</p>
+          </div>
+
+          @if (questionHistoryMessage()) {
+            <p class="studio-meta studio-meta--accent">{{ questionHistoryMessage() }}</p>
+          }
+
+          @if (isLoadingQuestionHistory()) {
+            <div class="studio-empty studio-empty--compact">
+              <h3>Loading versions...</h3>
+              <p>The backend is fetching the full question history for this item.</p>
+            </div>
+          } @else if (questionHistoryTargetId() && questionHistory().length) {
+            <div class="studio-list studio-list--history">
+              @for (version of questionHistory(); track version.id) {
+                <article class="studio-item studio-item--history">
+                  <div class="studio-item__top">
+                    <div>
+                      <span class="studio-badge">Version {{ version.versionNumber }}</span>
+                      <h3>{{ version.prompt }}</h3>
+                    </div>
+
+                    <span class="studio-meta">{{ version.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
+                  </div>
+
+                  <div class="studio-inline-badges">
+                    @for (category of version.categories; track category.id) {
+                      <span class="studio-badge">{{ category.name }}</span>
+                    }
+                  </div>
+
+                  <div class="studio-version-options">
+                    @for (option of version.options; track option.id) {
+                      <div class="studio-version-option" [class.studio-version-option--correct]="option.correct">
+                        <span>{{ option.displayOrder + 1 }}.</span>
+                        <strong>{{ option.content }}</strong>
+                      </div>
+                    }
+                  </div>
+                </article>
+              }
+            </div>
+
+            <div class="app-actions-row">
+              <app-action-button
+                label="Close History"
+                [routerLink]="null"
+                [nativeType]="'button'"
+                tone="secondary"
+                size="compact"
+                (clicked)="clearQuestionHistory()"
+              />
+            </div>
+          } @else {
+            <div class="studio-empty studio-empty--compact">
+              <h3>No history selected yet.</h3>
+              <p>Choose any question from the bank and open its history to verify how earlier versions looked.</p>
+            </div>
+          }
         </article>
       </aside>
     </section>
@@ -273,14 +392,14 @@
             All categories
           </button>
 
-          @for (category of studio.availableCategories(); track trackCategory($index, category)) {
+          @for (category of studio.categories(); track category.id) {
             <button
               class="studio-chip"
               type="button"
-              [class.studio-chip--active]="activeCategoryFilter() === category"
-              (click)="setCategoryFilter(category)"
+              [class.studio-chip--active]="activeCategoryFilter() === category.id"
+              (click)="setCategoryFilter(category.id)"
             >
-              {{ category }}
+              {{ category.name }}
             </button>
           }
         </div>
@@ -291,8 +410,8 @@
               <div class="studio-item__top">
                 <div>
                   <div class="studio-inline-badges">
-                    @for (category of question.categories; track trackCategory($index, category)) {
-                      <span class="studio-badge">{{ category }}</span>
+                    @for (category of question.categories; track category.id) {
+                      <span class="studio-badge">{{ category.name }}</span>
                     }
                   </div>
                   <h3>{{ question.prompt }}</h3>
@@ -301,8 +420,11 @@
 
               <div class="studio-item__footer">
                 <div class="studio-meta-group">
+                  <span class="studio-meta">Version {{ question.versionNumber }}</span>
                   <span class="studio-meta">{{ question.options.length }} options</span>
-                  <span class="studio-meta">Used in {{ studio.questionUsageCount(question.id) }} manual quiz{{ studio.questionUsageCount(question.id) === 1 ? '' : 'zes' }}</span>
+                  <span class="studio-meta">
+                    Used in {{ studio.questionUsageCount(question.id) }} manual quiz{{ studio.questionUsageCount(question.id) === 1 ? '' : 'zes' }}
+                  </span>
                 </div>
 
                 <label class="studio-checkbox">
@@ -337,7 +459,12 @@
           <form class="studio-form" [formGroup]="quizForm" (ngSubmit)="createQuiz()">
             <div class="app-field">
               <label for="editor-quiz-title">Quiz title</label>
-              <input id="editor-quiz-title" class="app-input" formControlName="title" placeholder="Security Sprint, Final Mock, Warm-Up..." />
+              <input
+                id="editor-quiz-title"
+                class="app-input"
+                formControlName="title"
+                placeholder="Security Sprint, Final Mock, Warm-Up..."
+              />
             </div>
 
             <div class="studio-form__split">
@@ -369,20 +496,26 @@
                     <div class="studio-selection-item">
                       <div>
                         <div class="studio-inline-badges">
-                          @for (category of question.categories; track trackCategory($index, category)) {
-                            <span class="studio-badge">{{ category }}</span>
+                          @for (category of question.categories; track category.id) {
+                            <span class="studio-badge">{{ category.name }}</span>
                           }
                         </div>
                         <p>{{ question.prompt }}</p>
                       </div>
-                      <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="removeSelectedQuestion(question.id)">x</button>
+                      <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="removeSelectedQuestion(question.id)">
+                        x
+                      </button>
                     </div>
                   } @empty {
                     <p class="studio-meta">Select questions from the bank on the left to build a manual quiz.</p>
                   }
                 </div>
               } @else {
-                <p class="studio-meta">This quiz will sample {{ quizForm.controls.randomCount.value }} random question{{ quizForm.controls.randomCount.value === 1 ? '' : 's' }} from the course bank every time it runs.</p>
+                <p class="studio-meta">
+                  This quiz will sample {{ quizForm.controls.randomCount.value }} random question{{
+                    quizForm.controls.randomCount.value === 1 ? '' : 's'
+                  }} from the course bank every time it runs.
+                </p>
               }
             </div>
 
@@ -434,7 +567,9 @@
             <p class="app-eyebrow">Category Manager</p>
             <h2>Keep The Course Taxonomy Clean</h2>
           </div>
-          <p class="studio-card__hint">Create reusable categories once, rename them when the course language evolves, and keep question tagging consistent.</p>
+          <p class="studio-card__hint">
+            Create reusable categories once, rename them when the course language evolves, and keep question tagging consistent.
+          </p>
         </div>
 
         <div class="studio-inline-entry">
@@ -454,7 +589,7 @@
         }
 
         <div class="studio-category-list">
-          @for (category of studio.categorySummaries(); track trackCategory($index, category.name)) {
+          @for (category of studio.categorySummaries(); track category.id) {
             <article class="studio-category-item">
               <div class="studio-category-item__head">
                 <div>
@@ -465,19 +600,19 @@
                 </div>
 
                 <div class="studio-category-item__actions">
-                  @if (editingCategory() === category.name) {
-                    <button class="studio-inline-button" type="button" (click)="saveCategoryEdit(category.name)">Save</button>
+                  @if (editingCategoryId() === category.id) {
+                    <button class="studio-inline-button" type="button" (click)="saveCategoryEdit(category.id)">Save</button>
                     <button class="studio-inline-button" type="button" (click)="cancelCategoryEdit()">Cancel</button>
                   } @else {
-                    <button class="studio-inline-button" type="button" (click)="startCategoryEdit(category.name)">Rename</button>
-                    <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="deleteCategory(category.name)">
-                      Delete
+                    <button class="studio-inline-button" type="button" (click)="startCategoryEdit(category.id, category.name)">Rename</button>
+                    <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="deleteCategory(category.id, category.name)">
+                      Archive
                     </button>
                   }
                 </div>
               </div>
 
-              @if (editingCategory() === category.name) {
+              @if (editingCategoryId() === category.id) {
                 <div class="studio-inline-entry">
                   <input
                     class="app-input"

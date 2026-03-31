@@ -10,6 +10,8 @@ import org.springframework.test.web.servlet.ResultActions;
 import pl.zieleeksw.quiz_me.BaseIntegration;
 import pl.zieleeksw.quiz_me.TestFieldValidationErrorDto;
 import pl.zieleeksw.quiz_me.auth.AuthenticationApi;
+import pl.zieleeksw.quiz_me.category.TestCategoryDto;
+import pl.zieleeksw.quiz_me.category.TestCreateCategoryRequest;
 import pl.zieleeksw.quiz_me.course.TestCourseDto;
 import pl.zieleeksw.quiz_me.course.TestCreateCourseRequest;
 
@@ -55,11 +57,13 @@ class ShouldCreateQuestionIntegrationTest extends BaseIntegration {
                         "A focused course for architecture, persistence, and testing drills."
                 )
         );
+        final TestCategoryDto webCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Web");
+        final TestCategoryDto controllersCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Controllers");
 
         final ResultActions result = mockMvc.perform(post("/courses/{courseId}/questions", course.id())
                 .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(validQuestionRequest())));
+                .content(objectMapper.writeValueAsString(validQuestionRequest(webCategory.id(), controllersCategory.id()))));
 
         final TestQuestionDto response = readResponse(result, TestQuestionDto.class);
 
@@ -70,6 +74,9 @@ class ShouldCreateQuestionIntegrationTest extends BaseIntegration {
         assertThat(response.prompt()).isEqualTo("Which bean is responsible for handling incoming REST requests?");
         assertThat(response.createdAt()).isNotNull();
         assertThat(response.updatedAt()).isEqualTo(response.createdAt());
+        assertThat(response.categories())
+                .extracting(TestQuestionCategoryDto::name)
+                .containsExactly("Web", "Controllers");
         assertThat(response.answers()).hasSize(2);
         assertThat(response.answers())
                 .extracting(TestQuestionAnswerDto::content)
@@ -92,12 +99,13 @@ class ShouldCreateQuestionIntegrationTest extends BaseIntegration {
                         "A focused course for filters, JWTs, and authorization workflows."
                 )
         );
+        final TestCategoryDto securityCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Security");
         final String anotherUserAccessToken = authenticationApi.registerAndLogin().accessToken().value();
 
         final ResultActions result = mockMvc.perform(post("/courses/{courseId}/questions", course.id())
                 .header(AUTHORIZATION_HEADER, bearerToken(anotherUserAccessToken))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(validQuestionRequest())));
+                .content(objectMapper.writeValueAsString(validQuestionRequest(securityCategory.id()))));
 
         itShouldReturnForbiddenStatus(result);
         itShouldHaveEmptyResponseBody(result);
@@ -113,12 +121,14 @@ class ShouldCreateQuestionIntegrationTest extends BaseIntegration {
                         "A practical course about images, layers, compose flows, and runtime fundamentals."
                 )
         );
+        final TestCategoryDto httpCategory = createCategory(course.id(), accessToken, "HTTP");
         final TestCreateQuestionRequest request = new TestCreateQuestionRequest(
                 "What header typically carries the bearer token for an API call?",
                 List.of(
                         new TestQuestionAnswerRequest("Authorization", true),
                         new TestQuestionAnswerRequest("Cookie", true)
-                )
+                ),
+                List.of(httpCategory.id())
         );
 
         final ResultActions result = mockMvc.perform(post("/courses/{courseId}/questions", course.id())
@@ -141,14 +151,29 @@ class ShouldCreateQuestionIntegrationTest extends BaseIntegration {
         );
     }
 
-    private TestCreateQuestionRequest validQuestionRequest() {
+    private TestCreateQuestionRequest validQuestionRequest(final Long... categoryIds) {
         return new TestCreateQuestionRequest(
                 "Which bean is responsible for handling incoming REST requests?",
                 List.of(
                         new TestQuestionAnswerRequest("DispatcherServlet", true),
                         new TestQuestionAnswerRequest("EntityManager", false)
-                )
+                ),
+                List.of(categoryIds)
         );
+    }
+
+    private TestCategoryDto createCategory(
+            final Long courseId,
+            final String accessToken,
+            final String name
+    ) throws Exception {
+        final MvcResult result = mockMvc.perform(post("/courses/{courseId}/categories", courseId)
+                        .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new TestCreateCategoryRequest(name))))
+                .andReturn();
+
+        return objectMapper.readValue(result.getResponse().getContentAsString(), TestCategoryDto.class);
     }
 
     private TestCourseDto createCourse(

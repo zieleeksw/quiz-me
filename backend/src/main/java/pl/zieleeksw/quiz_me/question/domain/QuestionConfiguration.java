@@ -2,6 +2,7 @@ package pl.zieleeksw.quiz_me.question.domain;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import pl.zieleeksw.quiz_me.category.domain.CategoryFacade;
 import pl.zieleeksw.quiz_me.course.domain.CourseFacade;
 
 @Configuration
@@ -12,15 +13,20 @@ class QuestionConfiguration {
             final QuestionRepository questionRepository,
             final QuestionVersionRepository questionVersionRepository,
             final QuestionAnswerRepository questionAnswerRepository,
-            final CourseFacade courseFacade
+            final QuestionVersionCategoryRepository questionVersionCategoryRepository,
+            final CourseFacade courseFacade,
+            final CategoryFacade categoryFacade
     ) {
         return new QuestionFacade(
                 questionRepository,
                 questionVersionRepository,
                 questionAnswerRepository,
+                questionVersionCategoryRepository,
                 courseFacade,
+                categoryFacade,
                 new QuestionPromptValidator(),
-                new QuestionAnswersValidator()
+                new QuestionAnswersValidator(),
+                new QuestionCategoryIdsValidator()
         );
     }
 }

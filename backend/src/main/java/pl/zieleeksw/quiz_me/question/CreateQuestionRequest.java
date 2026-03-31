@@ -4,6 +4,7 @@ import java.util.List;
 
 public record CreateQuestionRequest(
         @ValidQuestionPrompt String prompt,
-        @ValidQuestionAnswers List<QuestionAnswerRequest> answers
+        @ValidQuestionAnswers List<QuestionAnswerRequest> answers,
+        @ValidQuestionCategoryIds List<Long> categoryIds
 ) {
 }

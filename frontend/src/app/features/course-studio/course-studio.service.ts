@@ -1,23 +1,112 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { catchError, finalize, forkJoin, map, of, tap } from 'rxjs';
+
+type CategoryApiDto = {
+  id: number;
+  courseId: number;
+  name: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type QuestionCategoryApiDto = {
+  id: number;
+  name: string;
+};
+
+type QuestionAnswerApiDto = {
+  id: number;
+  displayOrder: number;
+  content: string;
+  correct: boolean;
+};
+
+type QuestionApiDto = {
+  id: number;
+  courseId: number;
+  currentVersionNumber: number;
+  createdAt: string;
+  updatedAt: string;
+  prompt: string;
+  categories: QuestionCategoryApiDto[];
+  answers: QuestionAnswerApiDto[];
+};
+
+type QuestionVersionApiDto = {
+  id: number;
+  questionId: number;
+  versionNumber: number;
+  createdAt: string;
+  prompt: string;
+  categories: QuestionCategoryApiDto[];
+  answers: QuestionAnswerApiDto[];
+};
+
+type SaveCategoryPayload = {
+  name: string;
+};
+
+type SaveQuestionPayload = {
+  prompt: string;
+  answers: {
+    content: string;
+    correct: boolean;
+  }[];
+  categoryIds: number[];
+};
+
+export type StudioCategory = {
+  id: number;
+  name: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StudioQuestionCategory = {
+  id: number;
+  name: string;
+};
+
+type QuestionOption = {
+  id: number;
+  displayOrder: number;
+  content: string;
+  correct: boolean;
+};
 
 type Question = {
-  id: string;
-  categories: string[];
+  id: number;
+  courseId: number;
+  versionNumber: number;
+  createdAt: string;
+  updatedAt: string;
   prompt: string;
-  options: string[];
+  categories: StudioQuestionCategory[];
+  options: QuestionOption[];
   correctOptionIndex: number;
 };
 
-type Category = {
-  id: string;
-  name: string;
+export type StudioQuestion = Question;
+
+export type StudioQuestionVersion = {
+  id: number;
+  questionId: number;
+  versionNumber: number;
+  createdAt: string;
+  prompt: string;
+  categories: StudioQuestionCategory[];
+  options: QuestionOption[];
+  correctOptionIndex: number;
 };
 
 type QuizDefinition = {
   id: string;
   title: string;
   mode: 'manual' | 'random';
-  questionIds: string[];
+  questionIds: number[];
   randomCount: number | null;
 };
 
@@ -32,9 +121,9 @@ type AttemptSummary = {
 type ActiveAttempt = {
   sourceQuizId: string | null;
   quizTitle: string;
-  questionIds: string[];
+  questionIds: number[];
   currentIndex: number;
-  answers: Record<string, number>;
+  answers: Record<number, number>;
   finished: boolean;
   result: {
     correctAnswers: number;
@@ -42,83 +131,26 @@ type ActiveAttempt = {
   } | null;
 };
 
-type CategoryMutationResult =
-  | { ok: true; name: string }
-  | { ok: false; reason: 'empty' | 'duplicate' | 'not-found' };
-
-type CategoryDeleteResult =
-  | {
-      ok: true;
-      reassignedQuestionCount: number;
-      fallbackCategoryName: string | null;
-    }
-  | { ok: false; reason: 'not-found' };
-
-export type StudioQuestion = Question;
-export type StudioQuiz = QuizDefinition;
-
 @Injectable({ providedIn: 'root' })
 export class CourseStudioService {
+  private readonly http = inject(HttpClient);
+  private readonly apiBaseUrl = `${window.location.protocol}//${window.location.hostname}:8080`;
+
   private readonly courseTitleState = signal('Spring Boot Associate Mastery Path');
   private readonly courseSubtitleState = signal(
     'One course can hold the full question bank, multiple targeted quizzes, and a random practice mode with shared aggregated stats.'
   );
+  private readonly activeCourseIdState = signal<number | null>(null);
+  private readonly loadingState = signal(false);
+  private readonly loadedState = signal(false);
+  private readonly loadErrorState = signal<string | null>(null);
 
-  private readonly questionsState = signal<Question[]>([
-    {
-      id: this.createId('question'),
-      categories: ['Core', 'Bootstrapping'],
-      prompt: 'Which annotation marks the main Spring Boot entry point class?',
-      options: ['@SpringBootApplication', '@EnableAutoConfiguration', '@BootApplication', '@ConfigurationProperties'],
-      correctOptionIndex: 0
-    },
-    {
-      id: this.createId('question'),
-      categories: ['Web', 'Controllers'],
-      prompt: 'Which stereotype should be used for a REST endpoint class?',
-      options: ['@Service', '@Repository', '@RestController', '@ComponentScan'],
-      correctOptionIndex: 2
-    },
-    {
-      id: this.createId('question'),
-      categories: ['Security', 'HTTP'],
-      prompt: 'Which header usually carries a Bearer token in an HTTP request?',
-      options: ['Content-Type', 'Authorization', 'Accept', 'X-Session-Id'],
-      correctOptionIndex: 1
-    },
-    {
-      id: this.createId('question'),
-      categories: ['Data', 'Persistence'],
-      prompt: 'Which dependency is typically used for Spring Data JPA support?',
-      options: [
-        'spring-boot-starter-validation',
-        'spring-boot-starter-security',
-        'spring-boot-starter-data-jpa',
-        'spring-boot-starter-actuator'
-      ],
-      correctOptionIndex: 2
-    }
-  ]);
+  private readonly categoriesState = signal<StudioCategory[]>([]);
+  private readonly questionsState = signal<Question[]>([]);
+  private readonly questionVersionsState = signal<Record<number, StudioQuestionVersion[]>>({});
+  private readonly versionLoadingState = signal<number | null>(null);
 
-  private readonly categoriesState = signal<Category[]>(this.createInitialCategories(this.questionsState()));
-
-  private readonly quizzesState = signal<QuizDefinition[]>([
-    {
-      id: this.createId('quiz'),
-      title: 'Spring Boot Foundations',
-      mode: 'manual',
-      questionIds: [],
-      randomCount: null
-    },
-    {
-      id: this.createId('quiz'),
-      title: 'Random Checkpoint',
-      mode: 'random',
-      questionIds: [],
-      randomCount: 3
-    }
-  ]);
-
+  private readonly quizzesState = signal<QuizDefinition[]>([]);
   private readonly attemptsState = signal<AttemptSummary[]>([
     {
       id: this.createId('attempt'),
@@ -135,23 +167,29 @@ export class CourseStudioService {
       finishedAt: 'Yesterday'
     }
   ]);
-
   private readonly activeAttemptState = signal<ActiveAttempt | null>(null);
 
   readonly courseTitle = this.courseTitleState.asReadonly();
   readonly courseSubtitle = this.courseSubtitleState.asReadonly();
+  readonly activeCourseId = this.activeCourseIdState.asReadonly();
+  readonly isLoading = this.loadingState.asReadonly();
+  readonly isLoaded = this.loadedState.asReadonly();
+  readonly loadError = this.loadErrorState.asReadonly();
+  readonly versionLoadingQuestionId = this.versionLoadingState.asReadonly();
+
+  readonly categories = this.categoriesState.asReadonly();
   readonly questions = this.questionsState.asReadonly();
-  readonly availableCategories = computed(() =>
-    this.categoriesState()
-      .map((category) => category.name)
-      .sort((left, right) => left.localeCompare(right))
-  );
+  readonly availableCategories = computed(() => this.categoriesState());
   readonly categorySummaries = computed(() =>
-    this.availableCategories().map((categoryName) => ({
-      name: categoryName,
-      questionCount: this.questionsState().filter((question) => question.categories.includes(categoryName)).length
+    this.categoriesState().map((category) => ({
+      id: category.id,
+      name: category.name,
+      questionCount: this.questionsState().filter((question) =>
+        question.categories.some((questionCategory) => questionCategory.id === category.id)
+      ).length
     }))
   );
+
   readonly quizzes = computed(() =>
     this.quizzesState().map((quiz) => ({
       ...quiz,
@@ -160,7 +198,6 @@ export class CourseStudioService {
   );
   readonly attempts = computed(() => this.attemptsState());
   readonly activeAttempt = computed(() => this.activeAttemptState());
-
   readonly totalQuestions = computed(() => this.questionsState().length);
   readonly totalQuizzes = computed(() => this.quizzesState().length);
   readonly totalAttempts = computed(() => this.attemptsState().length);
@@ -209,151 +246,175 @@ export class CourseStudioService {
     return activeAttempt.answers[currentQuestion.id] ?? null;
   });
 
-  constructor() {
-    const currentQuestions = this.questionsState();
-
-    this.quizzesState.update((quizzes) =>
-      quizzes.map((quiz, index) => {
-        if (index === 0) {
-          return {
-            ...quiz,
-            questionIds: currentQuestions.slice(0, 3).map((question) => question.id)
-          };
-        }
-
-        return quiz;
-      })
-    );
-  }
-
-  addQuestion(payload: { categories: string[]; prompt: string; options: string[]; correctOptionIndex: number }): void {
-    this.ensureManagedCategories(payload.categories);
-
-    const newQuestion: Question = {
-      id: this.createId('question'),
-      categories: payload.categories,
-      prompt: payload.prompt,
-      options: payload.options,
-      correctOptionIndex: payload.correctOptionIndex
-    };
-
-    this.questionsState.update((questions) => [newQuestion, ...questions]);
-  }
-
-  addCategory(name: string): CategoryMutationResult {
-    const trimmedName = name.trim();
-
-    if (!trimmedName) {
-      return { ok: false, reason: 'empty' };
+  loadCourseContext(courseId: number, force = false): void {
+    if (this.loadingState()) {
+      return;
     }
 
-    if (this.hasCategory(trimmedName)) {
-      return { ok: false, reason: 'duplicate' };
+    if (this.activeCourseIdState() === courseId && this.loadedState() && !force) {
+      return;
     }
 
-    this.categoriesState.update((categories) => [...categories, { id: this.createId('category'), name: trimmedName }]);
-    return { ok: true, name: trimmedName };
-  }
+    this.activeCourseIdState.set(courseId);
+    this.loadingState.set(true);
+    this.loadedState.set(false);
+    this.loadErrorState.set(null);
+    this.questionVersionsState.set({});
+    this.activeAttemptState.set(null);
 
-  renameCategory(currentName: string, nextName: string): CategoryMutationResult {
-    const trimmedNextName = nextName.trim();
-    const resolvedCurrentName = this.resolveManagedCategoryName(currentName);
-
-    if (!resolvedCurrentName) {
-      return { ok: false, reason: 'not-found' };
-    }
-
-    if (!trimmedNextName) {
-      return { ok: false, reason: 'empty' };
-    }
-
-    if (
-      !this.isSameCategoryName(resolvedCurrentName, trimmedNextName) &&
-      this.hasCategory(trimmedNextName)
-    ) {
-      return { ok: false, reason: 'duplicate' };
-    }
-
-    this.categoriesState.update((categories) =>
-      categories.map((category) =>
-        this.isSameCategoryName(category.name, resolvedCurrentName) ? { ...category, name: trimmedNextName } : category
+    forkJoin({
+      categories: this.http.get<CategoryApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/categories`),
+      questions: this.http.get<QuestionApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/questions`)
+    })
+      .pipe(
+        map(({ categories, questions }) => ({
+          categories: categories.map((category) => this.mapCategory(category)),
+          questions: questions.map((question) => this.mapQuestion(question))
+        })),
+        tap(({ categories, questions }) => {
+          this.categoriesState.set(categories);
+          this.questionsState.set(questions);
+          this.resetMockQuizState(questions);
+          this.loadedState.set(true);
+        }),
+        catchError(() => {
+          this.categoriesState.set([]);
+          this.questionsState.set([]);
+          this.resetMockQuizState([]);
+          this.loadErrorState.set('Unable to load this course editor right now.');
+          this.loadedState.set(true);
+          return of(null);
+        })
       )
-    );
-    this.questionsState.update((questions) =>
-      questions.map((question) => ({
-        ...question,
-        categories: question.categories.map((category) =>
-          this.isSameCategoryName(category, resolvedCurrentName) ? trimmedNextName : category
-        )
-      }))
-    );
-
-    return { ok: true, name: trimmedNextName };
+      .subscribe({
+        complete: () => {
+          this.loadingState.set(false);
+        }
+      });
   }
 
-  deleteCategory(categoryName: string): CategoryDeleteResult {
-    const resolvedCategoryName = this.resolveManagedCategoryName(categoryName);
+  createCategory(name: string) {
+    const courseId = this.requireActiveCourseId();
 
-    if (!resolvedCategoryName) {
-      return { ok: false, reason: 'not-found' };
-    }
-
-    let reassignedQuestionCount = 0;
-    let fallbackCategoryName: string | null = null;
-
-    this.categoriesState.update((categories) =>
-      categories.filter((category) => !this.isSameCategoryName(category.name, resolvedCategoryName))
-    );
-    this.questionsState.update((questions) =>
-      questions.map((question) => {
-        const remainingCategories = question.categories.filter(
-          (category) => !this.isSameCategoryName(category, resolvedCategoryName)
-        );
-
-        if (remainingCategories.length === question.categories.length) {
-          return question;
-        }
-
-        if (remainingCategories.length) {
-          return {
-            ...question,
-            categories: remainingCategories
-          };
-        }
-
-        const fallbackName = this.ensureFallbackCategory();
-        fallbackCategoryName = fallbackName;
-        reassignedQuestionCount += 1;
-
-        return {
-          ...question,
-          categories: [fallbackName]
-        };
+    return this.http.post<CategoryApiDto>(`${this.apiBaseUrl}/courses/${courseId}/categories`, { name } satisfies SaveCategoryPayload).pipe(
+      map((category) => this.mapCategory(category)),
+      tap((category) => {
+        this.categoriesState.update((categories) => this.sortCategories([...categories, category]));
       })
     );
-
-    return {
-      ok: true,
-      reassignedQuestionCount,
-      fallbackCategoryName
-    };
   }
 
-  deleteQuestion(questionId: string): void {
-    this.questionsState.update((questions) => questions.filter((question) => question.id !== questionId));
-    this.quizzesState.update((quizzes) =>
-      quizzes.map((quiz) => ({
-        ...quiz,
-        questionIds: quiz.questionIds.filter((id) => id !== questionId)
-      }))
+  renameCategory(categoryId: number, name: string) {
+    const courseId = this.requireActiveCourseId();
+
+    return this.http
+      .put<CategoryApiDto>(`${this.apiBaseUrl}/courses/${courseId}/categories/${categoryId}`, { name } satisfies SaveCategoryPayload)
+      .pipe(
+        map((category) => this.mapCategory(category)),
+        tap((updatedCategory) => {
+          this.categoriesState.update((categories) =>
+            this.sortCategories(categories.map((category) => (category.id === updatedCategory.id ? updatedCategory : category)))
+          );
+          this.questionsState.update((questions) =>
+            questions.map((question) => ({
+              ...question,
+              categories: question.categories.map((category) =>
+                category.id === updatedCategory.id ? { id: updatedCategory.id, name: updatedCategory.name } : category
+              )
+            }))
+          );
+          this.questionVersionsState.update((versionsMap) =>
+            Object.fromEntries(
+              Object.entries(versionsMap).map(([questionId, versions]) => [
+                Number(questionId),
+                versions.map((version) => ({
+                  ...version,
+                  categories: version.categories.map((category) =>
+                    category.id === updatedCategory.id ? { id: updatedCategory.id, name: updatedCategory.name } : category
+                  )
+                }))
+              ])
+            )
+          );
+        })
+      );
+  }
+
+  deleteCategory(categoryId: number) {
+    const courseId = this.requireActiveCourseId();
+
+    return this.http.delete<void>(`${this.apiBaseUrl}/courses/${courseId}/categories/${categoryId}`).pipe(
+      tap(() => {
+        this.categoriesState.update((categories) => categories.filter((category) => category.id !== categoryId));
+      })
     );
-
-    if (this.activeAttemptState()?.questionIds.includes(questionId)) {
-      this.activeAttemptState.set(null);
-    }
   }
 
-  addQuiz(payload: { title: string; mode: 'manual' | 'random'; questionIds: string[]; randomCount: number | null }): void {
+  createQuestion(payload: SaveQuestionPayload) {
+    const courseId = this.requireActiveCourseId();
+
+    return this.http.post<QuestionApiDto>(`${this.apiBaseUrl}/courses/${courseId}/questions`, payload).pipe(
+      map((question) => this.mapQuestion(question)),
+      tap((question) => {
+        this.questionsState.update((questions) => [question, ...questions]);
+        this.resetQuestionSelectionForMockQuizzes();
+      })
+    );
+  }
+
+  updateQuestion(questionId: number, payload: SaveQuestionPayload) {
+    const courseId = this.requireActiveCourseId();
+
+    return this.http.put<QuestionApiDto>(`${this.apiBaseUrl}/courses/${courseId}/questions/${questionId}`, payload).pipe(
+      map((question) => this.mapQuestion(question)),
+      tap((updatedQuestion) => {
+        this.questionsState.update((questions) =>
+          questions.map((question) => (question.id === updatedQuestion.id ? updatedQuestion : question))
+        );
+        this.questionVersionsState.update((versionsMap) => {
+          const nextMap = { ...versionsMap };
+          delete nextMap[questionId];
+          return nextMap;
+        });
+      })
+    );
+  }
+
+  loadQuestionVersions(questionId: number, force = false) {
+    const courseId = this.requireActiveCourseId();
+
+    if (this.questionVersionsState()[questionId] && !force) {
+      return of(this.questionVersionsState()[questionId]);
+    }
+
+    this.versionLoadingState.set(questionId);
+
+    return this.http.get<QuestionVersionApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/questions/${questionId}/versions`).pipe(
+      map((versions) => versions.map((version) => this.mapQuestionVersion(version))),
+      tap((versions) => {
+        this.questionVersionsState.update((versionsMap) => ({
+          ...versionsMap,
+          [questionId]: versions
+        }));
+      }),
+      catchError((error) => {
+        this.questionVersionsState.update((versionsMap) => ({
+          ...versionsMap,
+          [questionId]: []
+        }));
+        throw error;
+      }),
+      finalize(() => {
+        this.versionLoadingState.set(null);
+      })
+    );
+  }
+
+  getQuestionVersions(questionId: number): StudioQuestionVersion[] {
+    return this.questionVersionsState()[questionId] ?? [];
+  }
+
+  addQuiz(payload: { title: string; mode: 'manual' | 'random'; questionIds: number[]; randomCount: number | null }): void {
     const quiz: QuizDefinition = {
       id: this.createId('quiz'),
       title: payload.title,
@@ -506,7 +567,7 @@ export class CourseStudioService {
     this.activeAttemptState.set(null);
   }
 
-  questionUsageCount(questionId: string): number {
+  questionUsageCount(questionId: number): number {
     return this.quizzesState().reduce((accumulator, quiz) => {
       if (quiz.mode === 'manual') {
         return accumulator + Number(quiz.questionIds.includes(questionId));
@@ -516,7 +577,48 @@ export class CourseStudioService {
     }, 0);
   }
 
-  private resolveQuestionIdsForQuiz(quiz: QuizDefinition): string[] {
+  private mapCategory(category: CategoryApiDto): StudioCategory {
+    return {
+      id: category.id,
+      name: category.name,
+      active: category.active,
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt
+    };
+  }
+
+  private mapQuestion(question: QuestionApiDto): Question {
+    const options = [...question.answers].sort((left, right) => left.displayOrder - right.displayOrder);
+
+    return {
+      id: question.id,
+      courseId: question.courseId,
+      versionNumber: question.currentVersionNumber,
+      createdAt: question.createdAt,
+      updatedAt: question.updatedAt,
+      prompt: question.prompt,
+      categories: question.categories,
+      options,
+      correctOptionIndex: options.findIndex((option) => option.correct)
+    };
+  }
+
+  private mapQuestionVersion(version: QuestionVersionApiDto): StudioQuestionVersion {
+    const options = [...version.answers].sort((left, right) => left.displayOrder - right.displayOrder);
+
+    return {
+      id: version.id,
+      questionId: version.questionId,
+      versionNumber: version.versionNumber,
+      createdAt: version.createdAt,
+      prompt: version.prompt,
+      categories: version.categories,
+      options,
+      correctOptionIndex: options.findIndex((option) => option.correct)
+    };
+  }
+
+  private resolveQuestionIdsForQuiz(quiz: QuizDefinition): number[] {
     if (quiz.mode === 'manual') {
       return quiz.questionIds.filter((questionId) => this.questionsState().some((question) => question.id === questionId));
     }
@@ -525,60 +627,64 @@ export class CourseStudioService {
     return this.pickRandomQuestionIds(questionIds, quiz.randomCount ?? questionIds.length);
   }
 
-  private pickRandomQuestionIds(questionIds: string[], count: number): string[] {
+  private pickRandomQuestionIds(questionIds: number[], count: number): number[] {
     const shuffled = [...questionIds].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, Math.min(count, questionIds.length));
   }
 
-  private createId(prefix: string): string {
-    return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
-  }
+  private resetMockQuizState(questions: Question[]): void {
+    const questionIds = questions.map((question) => question.id);
 
-  private createInitialCategories(questions: Question[]): Category[] {
-    return [...new Set(questions.flatMap((question) => question.categories))]
-      .sort((left, right) => left.localeCompare(right))
-      .map((categoryName) => ({
-        id: this.createId('category'),
-        name: categoryName
-      }));
-  }
-
-  private ensureManagedCategories(categoryNames: string[]): void {
-    const missingCategoryNames = categoryNames.filter((categoryName) => !this.hasCategory(categoryName));
-
-    if (!missingCategoryNames.length) {
-      return;
-    }
-
-    this.categoriesState.update((categories) => [
-      ...categories,
-      ...missingCategoryNames.map((categoryName) => ({
-        id: this.createId('category'),
-        name: categoryName.trim()
-      }))
+    this.quizzesState.set([
+      {
+        id: this.createId('quiz'),
+        title: 'Spring Boot Foundations',
+        mode: 'manual',
+        questionIds: questionIds.slice(0, 3),
+        randomCount: null
+      },
+      {
+        id: this.createId('quiz'),
+        title: 'Random Checkpoint',
+        mode: 'random',
+        questionIds: [],
+        randomCount: Math.min(3, questionIds.length || 3)
+      }
     ]);
   }
 
-  private ensureFallbackCategory(): string {
-    const fallbackName = 'Uncategorized';
+  private resetQuestionSelectionForMockQuizzes(): void {
+    this.quizzesState.update((quizzes) =>
+      quizzes.map((quiz, index) => {
+        if (quiz.mode === 'manual' && index === 0 && !quiz.questionIds.length) {
+          return {
+            ...quiz,
+            questionIds: this.questionsState()
+              .slice(0, 3)
+              .map((question) => question.id)
+          };
+        }
 
-    if (!this.hasCategory(fallbackName)) {
-      this.categoriesState.update((categories) => [...categories, { id: this.createId('category'), name: fallbackName }]);
+        return quiz;
+      })
+    );
+  }
+
+  private sortCategories(categories: StudioCategory[]): StudioCategory[] {
+    return [...categories].sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  private requireActiveCourseId(): number {
+    const courseId = this.activeCourseIdState();
+
+    if (!courseId) {
+      throw new Error('Course context is missing.');
     }
 
-    return fallbackName;
+    return courseId;
   }
 
-  private resolveManagedCategoryName(candidate: string): string | null {
-    const managedCategory = this.categoriesState().find((category) => this.isSameCategoryName(category.name, candidate));
-    return managedCategory?.name ?? null;
-  }
-
-  private hasCategory(candidate: string): boolean {
-    return this.categoriesState().some((category) => this.isSameCategoryName(category.name, candidate));
-  }
-
-  private isSameCategoryName(left: string, right: string): boolean {
-    return left.trim().toLowerCase() === right.trim().toLowerCase();
+  private createId(prefix: string): string {
+    return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
   }
 }

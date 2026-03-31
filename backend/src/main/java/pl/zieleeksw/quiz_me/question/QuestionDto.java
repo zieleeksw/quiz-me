@@ -10,6 +10,7 @@ public record QuestionDto(
         Instant createdAt,
         Instant updatedAt,
         String prompt,
+        List<QuestionCategoryDto> categories,
         List<QuestionAnswerDto> answers
 ) {
 }

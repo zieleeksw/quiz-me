@@ -1,11 +1,14 @@
 package pl.zieleeksw.quiz_me.question.domain;
 
+import pl.zieleeksw.quiz_me.category.CategoryDto;
+import pl.zieleeksw.quiz_me.category.domain.CategoryFacade;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import pl.zieleeksw.quiz_me.course.CourseDto;
 import pl.zieleeksw.quiz_me.course.domain.CourseFacade;
 import pl.zieleeksw.quiz_me.question.QuestionAnswerDto;
 import pl.zieleeksw.quiz_me.question.QuestionAnswerRequest;
+import pl.zieleeksw.quiz_me.question.QuestionCategoryDto;
 import pl.zieleeksw.quiz_me.question.QuestionDto;
 import pl.zieleeksw.quiz_me.question.QuestionVersionDto;
 
@@ -21,26 +24,38 @@ public class QuestionFacade {
 
     private final QuestionAnswerRepository questionAnswerRepository;
 
+    private final QuestionVersionCategoryRepository questionVersionCategoryRepository;
+
     private final CourseFacade courseFacade;
+
+    private final CategoryFacade categoryFacade;
 
     private final QuestionPromptValidator questionPromptValidator;
 
     private final QuestionAnswersValidator questionAnswersValidator;
 
+    private final QuestionCategoryIdsValidator questionCategoryIdsValidator;
+
     QuestionFacade(
             final QuestionRepository questionRepository,
             final QuestionVersionRepository questionVersionRepository,
             final QuestionAnswerRepository questionAnswerRepository,
+            final QuestionVersionCategoryRepository questionVersionCategoryRepository,
             final CourseFacade courseFacade,
+            final CategoryFacade categoryFacade,
             final QuestionPromptValidator questionPromptValidator,
-            final QuestionAnswersValidator questionAnswersValidator
+            final QuestionAnswersValidator questionAnswersValidator,
+            final QuestionCategoryIdsValidator questionCategoryIdsValidator
     ) {
         this.questionRepository = questionRepository;
         this.questionVersionRepository = questionVersionRepository;
         this.questionAnswerRepository = questionAnswerRepository;
+        this.questionVersionCategoryRepository = questionVersionCategoryRepository;
         this.courseFacade = courseFacade;
+        this.categoryFacade = categoryFacade;
         this.questionPromptValidator = questionPromptValidator;
         this.questionAnswersValidator = questionAnswersValidator;
+        this.questionCategoryIdsValidator = questionCategoryIdsValidator;
     }
 
     @Transactional
@@ -48,6 +63,7 @@ public class QuestionFacade {
             final Long courseId,
             final String prompt,
             final List<QuestionAnswerRequest> answers,
+            final List<Long> categoryIds,
             final Long actorUserId,
             final boolean isAdmin
     ) {
@@ -58,6 +74,8 @@ public class QuestionFacade {
 
         validatePrompt(normalizedPrompt);
         validateAnswers(answers);
+        validateCategoryIds(categoryIds);
+        final List<CategoryDto> categories = categoryFacade.findActiveCategoriesByIdsOrThrow(courseId, categoryIds);
         final List<QuestionAnswer> normalizedAnswers = normalizeAnswers(answers);
 
         final Instant now = roundToDatabasePrecision(Instant.now());
@@ -71,7 +89,7 @@ public class QuestionFacade {
                 normalizedAnswers
         );
 
-        saveVersion(version);
+        saveVersion(version, categories);
         return toCurrentQuestionDto(savedQuestion);
     }
 
@@ -105,6 +123,7 @@ public class QuestionFacade {
             final Long questionId,
             final String prompt,
             final List<QuestionAnswerRequest> answers,
+            final List<Long> categoryIds,
             final Long actorUserId,
             final boolean isAdmin
     ) {
@@ -116,6 +135,8 @@ public class QuestionFacade {
 
         validatePrompt(normalizedPrompt);
         validateAnswers(answers);
+        validateCategoryIds(categoryIds);
+        final List<CategoryDto> categories = categoryFacade.findActiveCategoriesByIdsOrThrow(courseId, categoryIds);
         final List<QuestionAnswer> normalizedAnswers = normalizeAnswers(answers);
 
         final Instant now = roundToDatabasePrecision(Instant.now());
@@ -137,7 +158,7 @@ public class QuestionFacade {
                 normalizedAnswers
         );
 
-        saveVersion(nextVersion);
+        saveVersion(nextVersion, categories);
         return toCurrentQuestionDto(savedQuestion);
     }
 
@@ -153,16 +174,29 @@ public class QuestionFacade {
         questionAnswersValidator.validate(answers);
     }
 
+    public void validateCategoryIds(
+            final List<Long> categoryIds
+    ) {
+        questionCategoryIdsValidator.validate(categoryIds);
+    }
+
     private void saveVersion(
-            final QuestionVersion version
+            final QuestionVersion version,
+            final List<CategoryDto> categories
     ) {
         final QuestionVersionEntity savedVersion = questionVersionRepository.save(QuestionVersionEntity.from(version));
         final List<QuestionAnswerEntity> answerEntities = version.getAnswers()
                 .stream()
                 .map(answer -> QuestionAnswerEntity.from(savedVersion.getId(), answer))
                 .toList();
+        final List<QuestionVersionCategoryEntity> categoryEntities = new ArrayList<>();
+
+        for (int index = 0; index < categories.size(); index++) {
+            categoryEntities.add(QuestionVersionCategoryEntity.from(savedVersion.getId(), categories.get(index).id(), index));
+        }
 
         questionAnswerRepository.saveAll(answerEntities);
+        questionVersionCategoryRepository.saveAll(categoryEntities);
     }
 
     private QuestionEntity findQuestionInCourse(
@@ -187,6 +221,7 @@ public class QuestionFacade {
                         question.getCurrentVersionNumber()
                 )
                 .orElseThrow(() -> new IllegalStateException("Current question version was not found."));
+        final List<QuestionCategoryDto> categories = findCategoryDtos(question.getCourseId(), currentVersion.getId());
         final List<QuestionAnswerDto> answers = findAnswerDtos(currentVersion.getId());
 
         return new QuestionDto(
@@ -196,6 +231,7 @@ public class QuestionFacade {
                 question.getCreatedAt(),
                 question.getUpdatedAt(),
                 currentVersion.getPrompt(),
+                categories,
                 answers
         );
     }
@@ -203,14 +239,36 @@ public class QuestionFacade {
     private QuestionVersionDto toQuestionVersionDto(
             final QuestionVersionEntity version
     ) {
+        final QuestionEntity question = questionRepository.findById(version.getQuestionId())
+                .orElseThrow(() -> new IllegalStateException("Question for version was not found."));
+
         return new QuestionVersionDto(
                 version.getId(),
                 version.getQuestionId(),
                 version.getVersionNumber(),
                 version.getCreatedAt(),
                 version.getPrompt(),
+                findCategoryDtos(question.getCourseId(), version.getId()),
                 findAnswerDtos(version.getId())
         );
+    }
+
+    private List<QuestionCategoryDto> findCategoryDtos(
+            final Long courseId,
+            final Long questionVersionId
+    ) {
+        final List<Long> categoryIds = questionVersionCategoryRepository.findAllByQuestionVersionIdOrderByDisplayOrderAsc(questionVersionId)
+                .stream()
+                .map(QuestionVersionCategoryEntity::getCategoryId)
+                .toList();
+
+        return categoryFacade.findCategoriesByIdsInCourse(courseId, categoryIds)
+                .stream()
+                .map(category -> new QuestionCategoryDto(
+                        category.id(),
+                        category.name()
+                ))
+                .toList();
     }
 
     private List<QuestionAnswerDto> findAnswerDtos(
