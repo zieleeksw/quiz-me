@@ -107,6 +107,10 @@
   font-weight: 800;
 }
 
+.studio-form .app-actions-row {
+  margin-top: 1.2rem;
+}
+
 @media (max-width: 760px) {
   .studio-answer-builder__row {
     grid-template-columns: 1fr;

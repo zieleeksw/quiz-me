@@ -32,13 +32,13 @@
   <section class="question-editor-layout">
     <article class="studio-card">
       <div class="studio-card__header">
-        <div>
-          <p class="app-eyebrow">{{ isEditing() ? 'Question Versioning' : 'Question Composer' }}</p>
+        <p class="app-eyebrow">{{ isEditing() ? 'Question Versioning' : 'Question Composer' }}</p>
+        <div class="studio-card__headline">
           <h2>{{ isEditing() ? 'Save A New Question Version' : 'Create New Question' }}</h2>
+          <p class="studio-card__hint">
+            Categories come from the managed taxonomy, and saving on edit creates a fresh backend version instead of mutating history.
+          </p>
         </div>
-        <p class="studio-card__hint">
-          Categories come from the managed taxonomy, and saving on edit creates a fresh backend version instead of mutating history.
-        </p>
       </div>
 
       @if (questionMessage()) {
@@ -143,11 +143,11 @@
     @if (isEditing()) {
       <article class="studio-card">
         <div class="studio-card__header">
-          <div>
-            <p class="app-eyebrow">Version History</p>
+          <p class="app-eyebrow">Version History</p>
+          <div class="studio-card__headline">
             <h2>Inspect Previous Question States</h2>
+            <p class="studio-card__hint">Every edit creates a new backend version, so this timeline shows earlier prompts, answers, and category assignments.</p>
           </div>
-          <p class="studio-card__hint">Every edit creates a new backend version, so this timeline shows earlier prompts, answers, and category assignments.</p>
         </div>
 
         @if (questionHistoryMessage()) {

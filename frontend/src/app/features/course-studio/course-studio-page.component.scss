@@ -94,18 +94,23 @@
 }
 
 .studio-card__header {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.studio-card__headline {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   align-items: start;
 }
 
-.studio-card__header h2,
+.studio-card__headline h2,
 .studio-item h3,
 .studio-player__head h3,
 .studio-result h3,
 .studio-empty h3 {
-  margin: 0.1rem 0 0;
+  margin: 0;
   font-size: 1.28rem;
   line-height: 1.2;
 }
@@ -248,7 +253,7 @@
 
 @media (max-width: 760px) {
   .studio-hero,
-  .studio-card__header,
+  .studio-card__headline,
   .studio-item__top,
   .studio-player__head {
     flex-direction: column;

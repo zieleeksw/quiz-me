@@ -66,13 +66,13 @@
     <section class="studio-grid studio-grid--single">
       <article class="studio-card studio-card--bank">
         <div class="studio-card__header">
-          <div>
-            <p class="app-eyebrow">Question Bank</p>
+          <p class="app-eyebrow">Question Bank</p>
+          <div class="studio-card__headline">
             <h2>Search And Review Questions</h2>
+            <p class="studio-card__hint">
+              Keep this page focused on browsing the bank. Creating and editing now live on dedicated screens, where the workflow has more room.
+            </p>
           </div>
-          <p class="studio-card__hint">
-            Keep this page focused on browsing the bank. Creating and editing now live on dedicated screens, where the workflow has more room.
-          </p>
         </div>
 
         <div class="studio-bank-toolbar">
@@ -85,17 +85,6 @@
               placeholder="Search by wording or category"
               (input)="setBankSearch(($any($event.target).value))"
             />
-          </div>
-
-          <div class="studio-bank-summary">
-            <div class="studio-bank-summary__item">
-              <span>Visible</span>
-              <strong>{{ filteredQuestions().length }}</strong>
-            </div>
-            <div class="studio-bank-summary__item">
-              <span>Total</span>
-              <strong>{{ studio.totalQuestions() }}</strong>
-            </div>
           </div>
         </div>
 
@@ -168,11 +157,11 @@
     <section class="studio-editor-layout">
       <article class="studio-card studio-card--bank">
         <div class="studio-card__header">
-          <div>
-            <p class="app-eyebrow">Question Picker</p>
+          <p class="app-eyebrow">Question Picker</p>
+          <div class="studio-card__headline">
             <h2>Select Questions For Manual Quizzes</h2>
+            <p class="studio-card__hint">Browse the bank here, pick only the questions you need, and keep the builder visible on the right.</p>
           </div>
-          <p class="studio-card__hint">Browse the bank here, pick only the questions you need, and keep the builder visible on the right.</p>
         </div>
 
         <div class="studio-bank-toolbar">
@@ -185,17 +174,6 @@
               placeholder="Search by wording or category"
               (input)="setBankSearch(($any($event.target).value))"
             />
-          </div>
-
-          <div class="studio-bank-summary">
-            <div class="studio-bank-summary__item">
-              <span>Visible</span>
-              <strong>{{ filteredQuestions().length }}</strong>
-            </div>
-            <div class="studio-bank-summary__item">
-              <span>Selected</span>
-              <strong>{{ selectedQuestionIds().length }}</strong>
-            </div>
           </div>
         </div>
 
@@ -266,11 +244,11 @@
       <aside class="studio-builder-rail">
         <article class="studio-card">
           <div class="studio-card__header">
-            <div>
-              <p class="app-eyebrow">Quiz Composer</p>
+            <p class="app-eyebrow">Quiz Composer</p>
+            <div class="studio-card__headline">
               <h2>Build Quiz Without Scrolling</h2>
+              <p class="studio-card__hint">The question selection always stays visible here, so large course banks still feel manageable.</p>
             </div>
-            <p class="studio-card__hint">The question selection always stays visible here, so large course banks still feel manageable.</p>
           </div>
 
           <form class="studio-form" [formGroup]="quizForm" (ngSubmit)="createQuiz()">
@@ -380,13 +358,13 @@
     <section class="studio-grid studio-grid--single">
       <article class="studio-card">
         <div class="studio-card__header">
-          <div>
-            <p class="app-eyebrow">Category Manager</p>
+          <p class="app-eyebrow">Category Manager</p>
+          <div class="studio-card__headline">
             <h2>Keep The Course Taxonomy Clean</h2>
+            <p class="studio-card__hint">
+              Create reusable categories once, rename them when the course language evolves, and keep question tagging consistent.
+            </p>
           </div>
-          <p class="studio-card__hint">
-            Create reusable categories once, rename them when the course language evolves, and keep question tagging consistent.
-          </p>
         </div>
 
         <div class="studio-inline-entry">
