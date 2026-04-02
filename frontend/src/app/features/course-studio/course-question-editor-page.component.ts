@@ -2,7 +2,9 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { startWith } from 'rxjs';
 import { finalize } from 'rxjs';
 
 import { extractApiMessage, extractFieldErrors } from '../../shared/api/api-error.utils';
@@ -48,6 +50,10 @@ export class CourseQuestionEditorPageComponent {
     optionD: [''],
     correctOptionIndex: [0, [Validators.required]]
   });
+  readonly questionFormValue = toSignal(
+    this.questionForm.valueChanges.pipe(startWith(this.questionForm.getRawValue())),
+    { initialValue: this.questionForm.getRawValue() }
+  );
 
   readonly editedQuestion = computed(() => {
     const questionId = this.questionId();
@@ -68,6 +74,44 @@ export class CourseQuestionEditorPageComponent {
     return this.studio.getQuestionVersions(questionId);
   });
   readonly isLoadingQuestionHistory = computed(() => this.studio.versionLoadingQuestionId() === this.questionId());
+  readonly hasQuestionChanges = computed(() => {
+    if (!this.isEditing()) {
+      return true;
+    }
+
+    const question = this.editedQuestion();
+
+    if (!question) {
+      return false;
+    }
+
+    const formValue = this.questionFormValue();
+    const normalizedCorrectOptionIndex = this.normalizeCorrectOptionIndex(formValue.correctOptionIndex);
+    const currentAnswerContents = question.options
+      .slice()
+      .sort((left, right) => left.displayOrder - right.displayOrder)
+      .map((option) => option.content.trim());
+    const draftAnswerContents = [
+      formValue.optionA?.trim() ?? '',
+      formValue.optionB?.trim() ?? '',
+      formValue.optionC?.trim() ?? '',
+      formValue.optionD?.trim() ?? ''
+    ].filter((content) => content.length > 0);
+    const currentCategoryIds = question.categories.map((category) => category.id).slice().sort((left, right) => left - right);
+    const draftCategoryIds = this.selectedComposerCategoryIds()
+      .slice()
+      .sort((left, right) => left - right);
+
+    return (
+      question.prompt !== (formValue.prompt?.trim() ?? '') ||
+      JSON.stringify(currentAnswerContents) !== JSON.stringify(draftAnswerContents) ||
+      question.correctOptionIndex !== normalizedCorrectOptionIndex ||
+      JSON.stringify(currentCategoryIds) !== JSON.stringify(draftCategoryIds)
+    );
+  });
+  readonly isSaveDisabled = computed(
+    () => this.isSavingQuestion() || this.studio.isLoading() || !this.studio.activeCourseId() || (this.isEditing() && !this.hasQuestionChanges())
+  );
 
   constructor() {
     this.coursesCatalogService.loadCourses();
@@ -113,6 +157,11 @@ export class CourseQuestionEditorPageComponent {
   }
 
   saveQuestion(): void {
+    if (this.isEditing() && !this.hasQuestionChanges()) {
+      this.questionMessage.set('Make at least one change before saving a new version.');
+      return;
+    }
+
     const validationMessage = this.validateQuestionForm();
 
     if (validationMessage) {
@@ -122,11 +171,12 @@ export class CourseQuestionEditorPageComponent {
     }
 
     const value = this.questionForm.getRawValue();
+    const normalizedCorrectOptionIndex = this.normalizeCorrectOptionIndex(value.correctOptionIndex);
     const answers = [
-      { content: value.optionA.trim(), correct: value.correctOptionIndex === 0 },
-      { content: value.optionB.trim(), correct: value.correctOptionIndex === 1 },
-      { content: value.optionC.trim(), correct: value.correctOptionIndex === 2 },
-      { content: value.optionD.trim(), correct: value.correctOptionIndex === 3 }
+      { content: value.optionA.trim(), correct: normalizedCorrectOptionIndex === 0 },
+      { content: value.optionB.trim(), correct: normalizedCorrectOptionIndex === 1 },
+      { content: value.optionC.trim(), correct: normalizedCorrectOptionIndex === 2 },
+      { content: value.optionD.trim(), correct: normalizedCorrectOptionIndex === 3 }
     ].filter((answer) => answer.content.length > 0);
 
     const payload = {
@@ -191,6 +241,7 @@ export class CourseQuestionEditorPageComponent {
 
   private validateQuestionForm(): string | null {
     const value = this.questionForm.getRawValue();
+    const normalizedCorrectOptionIndex = this.normalizeCorrectOptionIndex(value.correctOptionIndex);
     const prompt = value.prompt.trim();
     const options = [value.optionA, value.optionB, value.optionC, value.optionD].map((entry) => entry.trim());
     const filledOptions = options.filter((entry) => entry.length > 0);
@@ -215,7 +266,7 @@ export class CourseQuestionEditorPageComponent {
       return 'Question must contain at least two answers.';
     }
 
-    if (!options[value.correctOptionIndex]) {
+    if (!options[normalizedCorrectOptionIndex]) {
       return 'Choose a correct answer that points to a filled option.';
     }
 
@@ -241,6 +292,10 @@ export class CourseQuestionEditorPageComponent {
     }
 
     return extractApiMessage(error) ?? 'Unable to save this question right now.';
+  }
+
+  private normalizeCorrectOptionIndex(value: unknown): number {
+    return typeof value === 'number' ? value : Number(value);
   }
 
   private resetQuestionComposer(): void {

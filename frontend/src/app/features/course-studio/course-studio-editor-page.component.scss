@@ -301,6 +301,25 @@
   line-height: 1.45;
 }
 
+.studio-version-option__content {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.studio-version-option__badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(34, 108, 99, 0.14);
+  color: var(--color-secondary-strong);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .studio-version-option--correct {
   border-color: rgba(34, 108, 99, 0.28);
   background: rgba(242, 248, 245, 0.92);

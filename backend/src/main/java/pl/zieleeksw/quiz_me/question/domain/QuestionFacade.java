@@ -138,6 +138,12 @@ public class QuestionFacade {
         validateCategoryIds(categoryIds);
         final List<CategoryDto> categories = categoryFacade.findActiveCategoriesByIdsOrThrow(courseId, categoryIds);
         final List<QuestionAnswer> normalizedAnswers = normalizeAnswers(answers);
+        final QuestionVersionEntity currentVersion = questionVersionRepository.findByQuestionIdAndVersionNumber(
+                        entity.getId(),
+                        entity.getCurrentVersionNumber()
+                )
+                .orElseThrow(() -> new IllegalStateException("Current question version was not found."));
+        assertMeaningfulUpdate(currentVersion, normalizedPrompt, normalizedAnswers, categoryIds);
 
         final Instant now = roundToDatabasePrecision(Instant.now());
         final Question question = Question.restore(
@@ -300,6 +306,63 @@ public class QuestionFacade {
         }
 
         return normalizedAnswers;
+    }
+
+    private void assertMeaningfulUpdate(
+            final QuestionVersionEntity currentVersion,
+            final String normalizedPrompt,
+            final List<QuestionAnswer> normalizedAnswers,
+            final List<Long> categoryIds
+    ) {
+        final List<QuestionAnswer> currentAnswers = questionAnswerRepository.findAllByQuestionVersionIdOrderByDisplayOrderAsc(currentVersion.getId())
+                .stream()
+                .map(answer -> QuestionAnswer.restore(
+                        answer.getId(),
+                        answer.getDisplayOrder(),
+                        answer.getContent(),
+                        answer.isCorrect()
+                ))
+                .toList();
+        final List<Long> currentCategoryIds = questionVersionCategoryRepository.findAllByQuestionVersionIdOrderByDisplayOrderAsc(currentVersion.getId())
+                .stream()
+                .map(QuestionVersionCategoryEntity::getCategoryId)
+                .toList();
+
+        final boolean promptChanged = !currentVersion.getPrompt().equals(normalizedPrompt);
+        final boolean answersChanged = !areSameAnswers(currentAnswers, normalizedAnswers);
+        final boolean categoriesChanged = !currentCategoryIds.equals(categoryIds);
+
+        if (!promptChanged && !answersChanged && !categoriesChanged) {
+            throw new IllegalArgumentException("Question update must change the prompt, answers, or categories.");
+        }
+    }
+
+    private boolean areSameAnswers(
+            final List<QuestionAnswer> left,
+            final List<QuestionAnswer> right
+    ) {
+        if (left.size() != right.size()) {
+            return false;
+        }
+
+        for (int index = 0; index < left.size(); index++) {
+            final QuestionAnswer leftAnswer = left.get(index);
+            final QuestionAnswer rightAnswer = right.get(index);
+
+            if (leftAnswer.getDisplayOrder() != rightAnswer.getDisplayOrder()) {
+                return false;
+            }
+
+            if (!leftAnswer.getContent().equals(rightAnswer.getContent())) {
+                return false;
+            }
+
+            if (leftAnswer.isCorrect() != rightAnswer.isCorrect()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private String normalize(

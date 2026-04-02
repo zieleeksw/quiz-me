@@ -105,10 +105,10 @@
         <div class="app-field">
           <label for="question-answer">Correct answer</label>
           <select id="question-answer" class="app-input" formControlName="correctOptionIndex">
-            <option [value]="0">Option A</option>
-            <option [value]="1">Option B</option>
-            <option [value]="2">Option C</option>
-            <option [value]="3">Option D</option>
+            <option [ngValue]="0">Option A</option>
+            <option [ngValue]="1">Option B</option>
+            <option [ngValue]="2">Option C</option>
+            <option [ngValue]="3">Option D</option>
           </select>
         </div>
 
@@ -117,7 +117,7 @@
             [label]="isEditing() ? 'Save New Version' : 'Add Question To Course'"
             [routerLink]="null"
             [nativeType]="'button'"
-            [disabled]="isSavingQuestion() || studio.isLoading() || !studio.activeCourseId()"
+            [disabled]="isSaveDisabled()"
             (clicked)="saveQuestion()"
           />
           <app-action-button label="Back to Question Bank" [routerLink]="editorLink" tone="secondary" size="compact" />
