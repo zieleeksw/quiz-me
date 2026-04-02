@@ -227,7 +227,7 @@ public class QuestionFacade {
                         question.getCurrentVersionNumber()
                 )
                 .orElseThrow(() -> new IllegalStateException("Current question version was not found."));
-        final List<QuestionCategoryDto> categories = findCategoryDtos(question.getCourseId(), currentVersion.getId());
+        final List<QuestionCategoryDto> categories = findCurrentCategoryDtos(question.getCourseId(), currentVersion.getId());
         final List<QuestionAnswerDto> answers = findAnswerDtos(currentVersion.getId());
 
         return new QuestionDto(
@@ -269,6 +269,24 @@ public class QuestionFacade {
                 .toList();
 
         return categoryFacade.findCategoriesByIdsInCourse(courseId, categoryIds)
+                .stream()
+                .map(category -> new QuestionCategoryDto(
+                        category.id(),
+                        category.name()
+                ))
+                .toList();
+    }
+
+    private List<QuestionCategoryDto> findCurrentCategoryDtos(
+            final Long courseId,
+            final Long questionVersionId
+    ) {
+        final List<Long> categoryIds = questionVersionCategoryRepository.findAllByQuestionVersionIdOrderByDisplayOrderAsc(questionVersionId)
+                .stream()
+                .map(QuestionVersionCategoryEntity::getCategoryId)
+                .toList();
+
+        return categoryFacade.findActiveCategoriesByIdsInCourse(courseId, categoryIds)
                 .stream()
                 .map(category -> new QuestionCategoryDto(
                         category.id(),

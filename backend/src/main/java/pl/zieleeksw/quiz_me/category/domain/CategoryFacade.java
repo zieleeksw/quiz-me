@@ -4,6 +4,7 @@ import org.springframework.security.access.AccessDeniedException;
 import pl.zieleeksw.quiz_me.category.CategoryDto;
 import pl.zieleeksw.quiz_me.course.CourseDto;
 import pl.zieleeksw.quiz_me.course.domain.CourseFacade;
+import pl.zieleeksw.quiz_me.question.domain.CurrentQuestionCategoryGuard;
 
 import java.time.Instant;
 import java.util.Comparator;
@@ -17,14 +18,18 @@ public class CategoryFacade {
 
     private final CategoryNameValidator categoryNameValidator;
 
+    private final CurrentQuestionCategoryGuard currentQuestionCategoryGuard;
+
     CategoryFacade(
             final CategoryRepository categoryRepository,
             final CourseFacade courseFacade,
-            final CategoryNameValidator categoryNameValidator
+            final CategoryNameValidator categoryNameValidator,
+            final CurrentQuestionCategoryGuard currentQuestionCategoryGuard
     ) {
         this.categoryRepository = categoryRepository;
         this.courseFacade = courseFacade;
         this.categoryNameValidator = categoryNameValidator;
+        this.currentQuestionCategoryGuard = currentQuestionCategoryGuard;
     }
 
     public CategoryDto createCategory(
@@ -99,6 +104,7 @@ public class CategoryFacade {
         assertCanManageCourse(course, actorUserId, isAdmin);
 
         final CategoryEntity entity = findActiveCategoryInCourse(categoryId, courseId);
+        assertCategoryCanBeArchived(courseId, categoryId);
         final Category category = Category.restore(
                 entity.getId(),
                 entity.getCourseId(),
@@ -122,6 +128,23 @@ public class CategoryFacade {
         }
 
         return sortByRequestedOrder(entities, categoryIds)
+                .stream()
+                .map(this::mapToDto)
+                .toList();
+    }
+
+    public List<CategoryDto> findActiveCategoriesByIdsInCourse(
+            final Long courseId,
+            final List<Long> categoryIds
+    ) {
+        if (categoryIds.isEmpty()) {
+            return List.of();
+        }
+
+        return sortByRequestedOrder(
+                categoryRepository.findAllByIdInAndCourseIdAndActiveTrue(categoryIds, courseId),
+                categoryIds
+        )
                 .stream()
                 .map(this::mapToDto)
                 .toList();
@@ -186,6 +209,27 @@ public class CategoryFacade {
     ) {
         if (categoryRepository.existsByCourseIdAndActiveTrueAndNameIgnoreCase(courseId, name)) {
             throw new IllegalArgumentException("Category name already exists in this course.");
+        }
+    }
+
+    private void assertCategoryCanBeArchived(
+            final Long courseId,
+            final Long categoryId
+    ) {
+        final List<Long> activeCategoryIds = categoryRepository.findAllByCourseIdAndActiveTrueOrderByNameAsc(courseId)
+                .stream()
+                .map(CategoryEntity::getId)
+                .toList();
+        final int blockedQuestionsCount = currentQuestionCategoryGuard.countQuestionsThatWouldLoseAllActiveCategories(
+                courseId,
+                categoryId,
+                activeCategoryIds
+        );
+
+        if (blockedQuestionsCount > 0) {
+            throw new IllegalArgumentException(
+                    "Category cannot be archived because it is the last active category for " + blockedQuestionsCount + " current question(s)."
+            );
         }
     }
 

@@ -9,9 +9,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import pl.zieleeksw.quiz_me.BaseIntegration;
+import pl.zieleeksw.quiz_me.TestRuntimeExceptionDto;
 import pl.zieleeksw.quiz_me.auth.AuthenticationApi;
 import pl.zieleeksw.quiz_me.course.TestCourseDto;
 import pl.zieleeksw.quiz_me.course.TestCreateCourseRequest;
+import pl.zieleeksw.quiz_me.question.TestCreateQuestionRequest;
+import pl.zieleeksw.quiz_me.question.TestQuestionAnswerRequest;
 
 import java.util.List;
 
@@ -118,6 +121,55 @@ class ShouldManageCategoriesIntegrationTest extends BaseIntegration {
         itShouldHaveEmptyResponseBody(result);
     }
 
+    @Test
+    void shouldReturnBadRequestWhenArchivingLastActiveCategoryOfCurrentQuestion() throws Exception {
+        final var ownerAuthentication = authenticationApi.registerAndLogin();
+        final TestCourseDto course = createCourse(
+                ownerAuthentication.accessToken().value(),
+                new TestCreateCourseRequest(
+                        "Spring Boot Associate",
+                        "A focused course for architecture, persistence, and testing drills."
+                )
+        );
+
+        final TestCategoryDto category = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Web");
+        createQuestion(
+                course.id(),
+                ownerAuthentication.accessToken().value(),
+                new TestCreateQuestionRequest(
+                        "Which bean is responsible for handling incoming REST requests?",
+                        List.of(
+                                new TestQuestionAnswerRequest("DispatcherServlet", true),
+                                new TestQuestionAnswerRequest("EntityManager", false)
+                        ),
+                        List.of(category.id())
+                )
+        );
+
+        final ResultActions deleteResult = mockMvc.perform(delete("/courses/{courseId}/categories/{categoryId}", course.id(), category.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON));
+
+        final TestRuntimeExceptionDto response = readResponse(deleteResult, TestRuntimeExceptionDto.class);
+
+        itShouldReturnBadRequestStatus(deleteResult);
+        assertThat(response).isEqualTo(new TestRuntimeExceptionDto(
+                "IllegalArgumentException",
+                "Category cannot be archived because it is the last active category for 1 current question(s)."
+        ));
+
+        final ResultActions fetchResult = mockMvc.perform(get("/courses/{courseId}/categories", course.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON));
+
+        final List<TestCategoryDto> categories = readListResponse(fetchResult);
+
+        itShouldReturnOkStatus(fetchResult);
+        assertThat(categories)
+                .extracting(TestCategoryDto::name)
+                .containsExactly("Web");
+    }
+
     private TestCourseDto createCourse(
             final String accessToken,
             final TestCreateCourseRequest request
@@ -129,6 +181,18 @@ class ShouldManageCategoriesIntegrationTest extends BaseIntegration {
                 .andReturn();
 
         return objectMapper.readValue(result.getResponse().getContentAsString(), TestCourseDto.class);
+    }
+
+    private void createQuestion(
+            final Long courseId,
+            final String accessToken,
+            final TestCreateQuestionRequest request
+    ) throws Exception {
+        mockMvc.perform(post("/courses/{courseId}/questions", courseId)
+                        .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andReturn();
     }
 
     private List<TestCategoryDto> readListResponse(

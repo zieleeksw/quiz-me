@@ -346,6 +346,12 @@ export class CourseStudioService {
     return this.http.delete<void>(`${this.apiBaseUrl}/courses/${courseId}/categories/${categoryId}`).pipe(
       tap(() => {
         this.categoriesState.update((categories) => categories.filter((category) => category.id !== categoryId));
+        this.questionsState.update((questions) =>
+          questions.map((question) => ({
+            ...question,
+            categories: question.categories.filter((category) => category.id !== categoryId)
+          }))
+        );
       })
     );
   }

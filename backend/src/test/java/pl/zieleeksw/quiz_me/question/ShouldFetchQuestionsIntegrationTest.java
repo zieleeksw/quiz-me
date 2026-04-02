@@ -18,6 +18,7 @@ import pl.zieleeksw.quiz_me.course.TestCreateCourseRequest;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -88,6 +89,50 @@ class ShouldFetchQuestionsIntegrationTest extends BaseIntegration {
                 .first()
                 .extracting(TestQuestionAnswerDto::content)
                 .isEqualTo("HttpMessageConverter");
+    }
+
+    @Test
+    void shouldHideArchivedCategoriesFromCurrentQuestionStateButKeepThemInVersionHistory() throws Exception {
+        final var ownerAuthentication = authenticationApi.registerAndLogin();
+        final TestCourseDto course = createCourse(
+                ownerAuthentication.accessToken().value(),
+                new TestCreateCourseRequest(
+                        "Spring Boot Associate",
+                        "A focused course for architecture, persistence, and testing drills."
+                )
+        );
+        final TestCategoryDto webCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Web");
+        final TestQuestionDto createdQuestion = createQuestion(course.id(), ownerAuthentication.accessToken().value(), initialQuestionRequest(webCategory.id()));
+
+        final ResultActions archiveResult = mockMvc.perform(delete("/courses/{courseId}/categories/{categoryId}", course.id(), webCategory.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON));
+
+        final ResultActions currentQuestionsResult = mockMvc.perform(get("/courses/{courseId}/questions", course.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON));
+
+        final List<TestQuestionDto> currentQuestions = readListResponse(currentQuestionsResult);
+
+        final ResultActions versionsResult = mockMvc.perform(get("/courses/{courseId}/questions/{questionId}/versions", course.id(), createdQuestion.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON));
+
+        final List<TestQuestionVersionDto> versions = objectMapper.readValue(
+                versionsResult.andReturn().getResponse().getContentAsString(),
+                new TypeReference<>() {
+                }
+        );
+
+        itShouldReturnOkStatus(currentQuestionsResult);
+        itShouldReturnOkStatus(versionsResult);
+        assertThat(archiveResult.andReturn().getResponse().getStatus()).isEqualTo(204);
+        assertThat(currentQuestions).hasSize(1);
+        assertThat(currentQuestions.getFirst().categories()).isEmpty();
+        assertThat(versions).hasSize(1);
+        assertThat(versions.getFirst().categories())
+                .extracting(TestQuestionCategoryDto::name)
+                .containsExactly("Web");
     }
 
     private TestCreateQuestionRequest initialQuestionRequest(final Long categoryId) {

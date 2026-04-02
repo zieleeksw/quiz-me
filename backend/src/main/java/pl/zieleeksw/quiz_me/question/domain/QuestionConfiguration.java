@@ -9,6 +9,19 @@ import pl.zieleeksw.quiz_me.course.domain.CourseFacade;
 class QuestionConfiguration {
 
     @Bean
+    CurrentQuestionCategoryGuard currentQuestionCategoryGuard(
+            final QuestionRepository questionRepository,
+            final QuestionVersionRepository questionVersionRepository,
+            final QuestionVersionCategoryRepository questionVersionCategoryRepository
+    ) {
+        return new CurrentQuestionCategoryGuard(
+                questionRepository,
+                questionVersionRepository,
+                questionVersionCategoryRepository
+        );
+    }
+
+    @Bean
     QuestionFacade questionFacade(
             final QuestionRepository questionRepository,
             final QuestionVersionRepository questionVersionRepository,
