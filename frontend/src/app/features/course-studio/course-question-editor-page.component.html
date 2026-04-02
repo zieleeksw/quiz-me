@@ -1,0 +1,196 @@
+<main class="workspace-shell studio-shell">
+  <app-workspace-topbar />
+
+  <section class="studio-hero">
+    <div>
+      <p class="app-eyebrow">{{ isEditing() ? 'Question Versioning' : 'Question Composer' }}</p>
+      <h1 class="studio-title">{{ isEditing() ? 'Edit Question' : 'Add New Question' }}</h1>
+      <p class="studio-copy">
+        {{ isEditing()
+          ? 'This page is focused on one question only, so editing and version history stay together in the same workspace.'
+          : 'Create a fresh question in its own dedicated flow, then return to the bank once the entry is ready.' }}
+      </p>
+    </div>
+
+    <div class="studio-hero__actions">
+      <app-action-button label="Back to Question Bank" [routerLink]="editorLink" tone="secondary" />
+    </div>
+  </section>
+
+  @if (studio.loadError()) {
+    <section class="studio-status studio-status--error">
+      <p>{{ studio.loadError() }}</p>
+    </section>
+  }
+
+  @if (studio.isLoading() && !studio.isLoaded()) {
+    <section class="studio-status">
+      <p>Loading course data...</p>
+    </section>
+  }
+
+  <section class="question-editor-layout" [class.question-editor-layout--single]="!isEditing()">
+    <article class="studio-card">
+      <div class="studio-card__header">
+        <div>
+          <p class="app-eyebrow">{{ isEditing() ? 'Question Versioning' : 'Question Composer' }}</p>
+          <h2>{{ isEditing() ? 'Save A New Question Version' : 'Create New Question' }}</h2>
+        </div>
+        <p class="studio-card__hint">
+          Categories come from the managed taxonomy, and saving on edit creates a fresh backend version instead of mutating history.
+        </p>
+      </div>
+
+      @if (questionMessage()) {
+        <p class="studio-meta studio-meta--accent">{{ questionMessage() }}</p>
+      }
+
+      <form class="studio-form" [formGroup]="questionForm" (ngSubmit)="saveQuestion()">
+        <div class="app-field">
+          <label>Categories</label>
+
+          @if (studio.categories().length) {
+            <div class="studio-chip-row studio-chip-row--tight">
+              @for (category of studio.categories(); track category.id) {
+                <button
+                  class="studio-chip"
+                  type="button"
+                  [class.studio-chip--active]="selectedComposerCategoryIds().includes(category.id)"
+                  (click)="toggleComposerCategory(category.id)"
+                >
+                  {{ category.name }}
+                </button>
+              }
+            </div>
+
+            @if (selectedComposerCategories().length) {
+              <div class="studio-inline-badges">
+                @for (category of selectedComposerCategories(); track category.id) {
+                  <button class="studio-chip studio-chip--active" type="button" (click)="removeComposerCategory(category.id)">
+                    {{ category.name }} x
+                  </button>
+                }
+              </div>
+            }
+          } @else {
+            <div class="studio-empty studio-empty--compact">
+              <h3>Create a category first.</h3>
+              <p>Use the category manager inside the editor before adding questions to this course.</p>
+            </div>
+          }
+        </div>
+
+        <div class="app-field">
+          <label for="question-prompt">Question prompt</label>
+          <textarea
+            id="question-prompt"
+            class="app-input studio-textarea"
+            formControlName="prompt"
+            placeholder="What should the learner answer?"
+          ></textarea>
+        </div>
+
+        <div class="studio-form__grid">
+          <div class="app-field">
+            <label for="editor-option-a">Option A</label>
+            <input id="editor-option-a" class="app-input" formControlName="optionA" placeholder="First answer" />
+          </div>
+
+          <div class="app-field">
+            <label for="editor-option-b">Option B</label>
+            <input id="editor-option-b" class="app-input" formControlName="optionB" placeholder="Second answer" />
+          </div>
+
+          <div class="app-field">
+            <label for="editor-option-c">Option C</label>
+            <input id="editor-option-c" class="app-input" formControlName="optionC" placeholder="Third answer" />
+          </div>
+
+          <div class="app-field">
+            <label for="editor-option-d">Option D</label>
+            <input id="editor-option-d" class="app-input" formControlName="optionD" placeholder="Fourth answer" />
+          </div>
+        </div>
+
+        <div class="app-field">
+          <label for="question-answer">Correct answer</label>
+          <select id="question-answer" class="app-input" formControlName="correctOptionIndex">
+            <option [value]="0">Option A</option>
+            <option [value]="1">Option B</option>
+            <option [value]="2">Option C</option>
+            <option [value]="3">Option D</option>
+          </select>
+        </div>
+
+        <div class="app-actions-row">
+          <app-action-button
+            [label]="isEditing() ? 'Save New Version' : 'Add Question To Course'"
+            [routerLink]="null"
+            [nativeType]="'button'"
+            [disabled]="isSavingQuestion() || studio.isLoading() || !studio.activeCourseId()"
+            (clicked)="saveQuestion()"
+          />
+          <app-action-button label="Back to Question Bank" [routerLink]="editorLink" tone="secondary" size="compact" />
+        </div>
+      </form>
+    </article>
+
+    @if (isEditing()) {
+      <article class="studio-card">
+        <div class="studio-card__header">
+          <div>
+            <p class="app-eyebrow">Version History</p>
+            <h2>Inspect Previous Question States</h2>
+          </div>
+          <p class="studio-card__hint">Every edit creates a new backend version, so this timeline shows earlier prompts, answers, and category assignments.</p>
+        </div>
+
+        @if (questionHistoryMessage()) {
+          <p class="studio-meta studio-meta--accent">{{ questionHistoryMessage() }}</p>
+        }
+
+        @if (isLoadingQuestionHistory()) {
+          <div class="studio-empty studio-empty--compact">
+            <h3>Loading versions...</h3>
+            <p>The backend is fetching the full history for this question.</p>
+          </div>
+        } @else if (questionHistory().length) {
+          <div class="studio-list studio-list--history">
+            @for (version of questionHistory(); track version.id) {
+              <article class="studio-item studio-item--history">
+                <div class="studio-item__top">
+                  <div>
+                    <span class="studio-badge">Version {{ version.versionNumber }}</span>
+                    <h3>{{ version.prompt }}</h3>
+                  </div>
+
+                  <span class="studio-meta">{{ version.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
+                </div>
+
+                <div class="studio-inline-badges">
+                  @for (category of version.categories; track category.id) {
+                    <span class="studio-badge">{{ category.name }}</span>
+                  }
+                </div>
+
+                <div class="studio-version-options">
+                  @for (option of version.options; track option.id) {
+                    <div class="studio-version-option" [class.studio-version-option--correct]="option.correct">
+                      <span>{{ option.displayOrder + 1 }}.</span>
+                      <strong>{{ option.content }}</strong>
+                    </div>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="studio-empty studio-empty--compact">
+            <h3>No previous versions yet.</h3>
+            <p>The question is loaded, but there is no older history to display yet.</p>
+          </div>
+        }
+      </article>
+    }
+  </section>
+</main>

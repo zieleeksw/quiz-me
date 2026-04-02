@@ -63,15 +63,15 @@
   </section>
 
   @if (activeTab() === 'questions') {
-    <section class="studio-editor-layout">
+    <section class="studio-grid studio-grid--single">
       <article class="studio-card studio-card--bank">
         <div class="studio-card__header">
           <div>
             <p class="app-eyebrow">Question Bank</p>
-            <h2>Filter And Curate Questions</h2>
+            <h2>Search And Review Questions</h2>
           </div>
           <p class="studio-card__hint">
-            Search by wording, narrow the bank by category, then open edit or version history for the exact question you want.
+            Keep this page focused on browsing the bank. Creating and editing now live on dedicated screens, where the workflow has more room.
           </p>
         </div>
 
@@ -99,26 +99,30 @@
           </div>
         </div>
 
-        <div class="studio-chip-row">
-          <button
-            class="studio-chip"
-            type="button"
-            [class.studio-chip--active]="activeCategoryFilter() === 'All'"
-            (click)="setCategoryFilter('All')"
-          >
-            All categories
-          </button>
-
-          @for (category of studio.categories(); track category.id) {
+        <div class="studio-list-header">
+          <div class="studio-chip-row">
             <button
               class="studio-chip"
               type="button"
-              [class.studio-chip--active]="activeCategoryFilter() === category.id"
-              (click)="setCategoryFilter(category.id)"
+              [class.studio-chip--active]="activeCategoryFilter() === 'All'"
+              (click)="setCategoryFilter('All')"
             >
-              {{ category.name }}
+              All categories
             </button>
-          }
+
+            @for (category of studio.categories(); track category.id) {
+              <button
+                class="studio-chip"
+                type="button"
+                [class.studio-chip--active]="activeCategoryFilter() === category.id"
+                (click)="setCategoryFilter(category.id)"
+              >
+                {{ category.name }}
+              </button>
+            }
+          </div>
+
+          <app-action-button label="Add Question" [routerLink]="addQuestionLink" size="compact" />
         </div>
 
         <div class="studio-list">
@@ -134,10 +138,7 @@
                   <h3>{{ question.prompt }}</h3>
                 </div>
 
-                <div class="studio-item__actions">
-                  <button class="studio-inline-button" type="button" (click)="openQuestionHistory(question.id)">History</button>
-                  <button class="studio-inline-button" type="button" (click)="startQuestionEdit(question)">Edit</button>
-                </div>
+                <app-action-button label="Edit Question" [routerLink]="questionEditLink(question.id)" tone="secondary" size="compact" />
               </div>
 
               <div class="studio-item__footer">
@@ -155,195 +156,11 @@
           } @empty {
             <div class="studio-empty">
               <h3>No questions match this filter.</h3>
-              <p>Try another category, clear the search phrase, or add a fresh question in the composer on the right.</p>
+              <p>Try another category, clear the search phrase, or open the dedicated add question screen.</p>
             </div>
           }
         </div>
       </article>
-
-      <aside class="studio-builder-rail">
-        <article class="studio-card">
-          <div class="studio-card__header">
-            <div>
-              <p class="app-eyebrow">{{ editingQuestionId() ? 'Question Versioning' : 'Question Composer' }}</p>
-              <h2>{{ editingQuestionId() ? 'Save A New Question Version' : 'Create New Question' }}</h2>
-            </div>
-            <p class="studio-card__hint">
-              Categories now come from the managed taxonomy, and every edit is saved as a fresh backend version instead of overwriting history.
-            </p>
-          </div>
-
-          @if (questionMessage()) {
-            <p class="studio-meta studio-meta--accent">{{ questionMessage() }}</p>
-          }
-
-          <form class="studio-form" [formGroup]="questionForm" (ngSubmit)="saveQuestion()">
-            <div class="app-field">
-              <label>Categories</label>
-
-              @if (studio.categories().length) {
-                <div class="studio-chip-row studio-chip-row--tight">
-                  @for (category of studio.categories(); track category.id) {
-                    <button
-                      class="studio-chip"
-                      type="button"
-                      [class.studio-chip--active]="selectedComposerCategoryIds().includes(category.id)"
-                      (click)="toggleComposerCategory(category.id)"
-                    >
-                      {{ category.name }}
-                    </button>
-                  }
-                </div>
-
-                @if (selectedComposerCategories().length) {
-                  <div class="studio-inline-badges">
-                    @for (category of selectedComposerCategories(); track category.id) {
-                      <button class="studio-chip studio-chip--active" type="button" (click)="removeComposerCategory(category.id)">
-                        {{ category.name }} x
-                      </button>
-                    }
-                  </div>
-                }
-              } @else {
-                <div class="studio-empty studio-empty--compact">
-                  <h3>Create a category first.</h3>
-                  <p>Use the category manager tab before adding questions to this course.</p>
-                </div>
-              }
-            </div>
-
-            <div class="app-field">
-              <label for="question-prompt">Question prompt</label>
-              <textarea
-                id="question-prompt"
-                class="app-input studio-textarea"
-                formControlName="prompt"
-                placeholder="What should the learner answer?"
-              ></textarea>
-            </div>
-
-            <div class="studio-form__grid">
-              <div class="app-field">
-                <label for="editor-option-a">Option A</label>
-                <input id="editor-option-a" class="app-input" formControlName="optionA" placeholder="First answer" />
-              </div>
-
-              <div class="app-field">
-                <label for="editor-option-b">Option B</label>
-                <input id="editor-option-b" class="app-input" formControlName="optionB" placeholder="Second answer" />
-              </div>
-
-              <div class="app-field">
-                <label for="editor-option-c">Option C</label>
-                <input id="editor-option-c" class="app-input" formControlName="optionC" placeholder="Third answer" />
-              </div>
-
-              <div class="app-field">
-                <label for="editor-option-d">Option D</label>
-                <input id="editor-option-d" class="app-input" formControlName="optionD" placeholder="Fourth answer" />
-              </div>
-            </div>
-
-            <div class="app-field">
-              <label for="question-answer">Correct answer</label>
-              <select id="question-answer" class="app-input" formControlName="correctOptionIndex">
-                <option [value]="0">Option A</option>
-                <option [value]="1">Option B</option>
-                <option [value]="2">Option C</option>
-                <option [value]="3">Option D</option>
-              </select>
-            </div>
-
-            <div class="app-actions-row">
-              <app-action-button
-                [label]="editingQuestionId() ? 'Save New Version' : 'Add Question To Course'"
-                [routerLink]="null"
-                [nativeType]="'button'"
-                [disabled]="isSavingQuestion() || studio.isLoading() || !studio.activeCourseId()"
-                (clicked)="saveQuestion()"
-              />
-
-              @if (editingQuestionId()) {
-                <app-action-button
-                  label="Cancel Edit"
-                  [routerLink]="null"
-                  [nativeType]="'button'"
-                  tone="secondary"
-                  size="compact"
-                  (clicked)="cancelQuestionEdit()"
-                />
-              }
-            </div>
-          </form>
-        </article>
-
-        <article class="studio-card">
-          <div class="studio-card__header">
-            <div>
-              <p class="app-eyebrow">Version History</p>
-              <h2>Inspect Previous Question States</h2>
-            </div>
-            <p class="studio-card__hint">Open any question history from the bank to see older prompts, answer sets, and category assignments.</p>
-          </div>
-
-          @if (questionHistoryMessage()) {
-            <p class="studio-meta studio-meta--accent">{{ questionHistoryMessage() }}</p>
-          }
-
-          @if (isLoadingQuestionHistory()) {
-            <div class="studio-empty studio-empty--compact">
-              <h3>Loading versions...</h3>
-              <p>The backend is fetching the full question history for this item.</p>
-            </div>
-          } @else if (questionHistoryTargetId() && questionHistory().length) {
-            <div class="studio-list studio-list--history">
-              @for (version of questionHistory(); track version.id) {
-                <article class="studio-item studio-item--history">
-                  <div class="studio-item__top">
-                    <div>
-                      <span class="studio-badge">Version {{ version.versionNumber }}</span>
-                      <h3>{{ version.prompt }}</h3>
-                    </div>
-
-                    <span class="studio-meta">{{ version.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
-                  </div>
-
-                  <div class="studio-inline-badges">
-                    @for (category of version.categories; track category.id) {
-                      <span class="studio-badge">{{ category.name }}</span>
-                    }
-                  </div>
-
-                  <div class="studio-version-options">
-                    @for (option of version.options; track option.id) {
-                      <div class="studio-version-option" [class.studio-version-option--correct]="option.correct">
-                        <span>{{ option.displayOrder + 1 }}.</span>
-                        <strong>{{ option.content }}</strong>
-                      </div>
-                    }
-                  </div>
-                </article>
-              }
-            </div>
-
-            <div class="app-actions-row">
-              <app-action-button
-                label="Close History"
-                [routerLink]="null"
-                [nativeType]="'button'"
-                tone="secondary"
-                size="compact"
-                (clicked)="clearQuestionHistory()"
-              />
-            </div>
-          } @else {
-            <div class="studio-empty studio-empty--compact">
-              <h3>No history selected yet.</h3>
-              <p>Choose any question from the bank and open its history to verify how earlier versions looked.</p>
-            </div>
-          }
-        </article>
-      </aside>
     </section>
   }
 

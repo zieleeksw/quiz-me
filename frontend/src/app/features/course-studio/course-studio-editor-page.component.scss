@@ -117,6 +117,13 @@
   font-size: 1.35rem;
 }
 
+.studio-list-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
 .studio-chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -358,6 +365,7 @@
 
   .studio-selection-box__header,
   .studio-bank-summary,
+  .studio-list-header,
   .studio-category-item__head,
   .studio-category-item__actions,
   .studio-item__actions {
