@@ -62,16 +62,6 @@
                 </button>
               }
             </div>
-
-            @if (selectedComposerCategories().length) {
-              <div class="studio-inline-badges">
-                @for (category of selectedComposerCategories(); track category.id) {
-                  <button class="studio-chip studio-chip--active" type="button" (click)="removeComposerCategory(category.id)">
-                    {{ category.name }} x
-                  </button>
-                }
-              </div>
-            }
           } @else {
             <div class="studio-empty studio-empty--compact">
               <h3>Create a category first.</h3>

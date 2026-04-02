@@ -49,11 +49,6 @@ export class CourseQuestionEditorPageComponent {
     correctOptionIndex: [0, [Validators.required]]
   });
 
-  readonly selectedComposerCategories = computed(() =>
-    this.selectedComposerCategoryIds()
-      .map((categoryId) => this.studio.categories().find((category) => category.id === categoryId))
-      .filter((category): category is NonNullable<typeof category> => Boolean(category))
-  );
   readonly editedQuestion = computed(() => {
     const questionId = this.questionId();
 
@@ -92,10 +87,6 @@ export class CourseQuestionEditorPageComponent {
 
       if (validSelectedIds.length !== this.selectedComposerCategoryIds().length) {
         this.selectedComposerCategoryIds.set(validSelectedIds);
-      }
-
-      if (!validSelectedIds.length && categories.length && !this.isEditing()) {
-        this.selectedComposerCategoryIds.set([categories[0].id]);
       }
     });
 
@@ -188,11 +179,6 @@ export class CourseQuestionEditorPageComponent {
     );
   }
 
-  removeComposerCategory(categoryId: number): void {
-    this.questionMessage.set('');
-    this.selectedComposerCategoryIds.update((categories) => categories.filter((entry) => entry !== categoryId));
-  }
-
   private loadQuestionHistory(questionId: number, force = false): void {
     this.questionHistoryMessage.set('');
 
@@ -266,11 +252,6 @@ export class CourseQuestionEditorPageComponent {
       optionD: '',
       correctOptionIndex: 0
     });
-
-    if (this.studio.categories().length) {
-      this.selectedComposerCategoryIds.set([this.studio.categories()[0].id]);
-    } else {
-      this.selectedComposerCategoryIds.set([]);
-    }
+    this.selectedComposerCategoryIds.set([]);
   }
 }
