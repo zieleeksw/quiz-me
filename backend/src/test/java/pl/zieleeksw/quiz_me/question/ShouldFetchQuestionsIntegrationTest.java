@@ -102,7 +102,19 @@ class ShouldFetchQuestionsIntegrationTest extends BaseIntegration {
                 )
         );
         final TestCategoryDto webCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Web");
-        final TestQuestionDto createdQuestion = createQuestion(course.id(), ownerAuthentication.accessToken().value(), initialQuestionRequest(webCategory.id()));
+        final TestCategoryDto controllersCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Controllers");
+        final TestQuestionDto createdQuestion = createQuestion(
+                course.id(),
+                ownerAuthentication.accessToken().value(),
+                new TestCreateQuestionRequest(
+                        "Which bean is responsible for handling incoming REST requests?",
+                        List.of(
+                                new TestQuestionAnswerRequest("DispatcherServlet", true),
+                                new TestQuestionAnswerRequest("EntityManager", false)
+                        ),
+                        List.of(webCategory.id(), controllersCategory.id())
+                )
+        );
 
         final ResultActions archiveResult = mockMvc.perform(delete("/courses/{courseId}/categories/{categoryId}", course.id(), webCategory.id())
                 .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
@@ -128,11 +140,13 @@ class ShouldFetchQuestionsIntegrationTest extends BaseIntegration {
         itShouldReturnOkStatus(versionsResult);
         assertThat(archiveResult.andReturn().getResponse().getStatus()).isEqualTo(204);
         assertThat(currentQuestions).hasSize(1);
-        assertThat(currentQuestions.getFirst().categories()).isEmpty();
+        assertThat(currentQuestions.getFirst().categories())
+                .extracting(TestQuestionCategoryDto::name)
+                .containsExactly("Controllers");
         assertThat(versions).hasSize(1);
         assertThat(versions.getFirst().categories())
                 .extracting(TestQuestionCategoryDto::name)
-                .containsExactly("Web");
+                .containsExactly("Web", "Controllers");
     }
 
     private TestCreateQuestionRequest initialQuestionRequest(final Long categoryId) {

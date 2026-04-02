@@ -195,6 +195,20 @@ class ShouldManageCategoriesIntegrationTest extends BaseIntegration {
                 .andReturn();
     }
 
+    private TestCategoryDto createCategory(
+            final Long courseId,
+            final String accessToken,
+            final String name
+    ) throws Exception {
+        final MvcResult result = mockMvc.perform(post("/courses/{courseId}/categories", courseId)
+                        .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new TestCreateCategoryRequest(name))))
+                .andReturn();
+
+        return objectMapper.readValue(result.getResponse().getContentAsString(), TestCategoryDto.class);
+    }
+
     private List<TestCategoryDto> readListResponse(
             final ResultActions result
     ) throws Exception {
