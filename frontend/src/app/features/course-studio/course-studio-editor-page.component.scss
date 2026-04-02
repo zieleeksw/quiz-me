@@ -85,9 +85,11 @@
 
 .studio-bank-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.studio-bank-toolbar .app-field {
+  width: 100%;
 }
 
 .studio-bank-summary {
