@@ -118,16 +118,25 @@
           @for (question of filteredQuestions(); track question.id) {
             <article class="studio-item studio-item--compact">
               <div class="studio-item__top">
-                <div>
-                  <div class="studio-inline-badges">
+                <div class="studio-item__content">
+                  <h3>{{ question.prompt }}</h3>
+                  <div class="studio-inline-badges studio-question-categories">
                     @for (category of question.categories; track category.id) {
                       <span class="studio-badge">{{ category.name }}</span>
                     }
                   </div>
-                  <h3>{{ question.prompt }}</h3>
                 </div>
 
                 <app-action-button label="Edit Question" [routerLink]="questionEditLink(question.id)" tone="secondary" size="compact" />
+              </div>
+
+              <div class="studio-question-preview">
+                @for (option of question.options; track option.id) {
+                  <div class="studio-question-preview__option" [class.studio-question-preview__option--correct]="option.correct">
+                    <span class="studio-question-preview__index">{{ option.displayOrder + 1 }}</span>
+                    <strong>{{ option.content }}</strong>
+                  </div>
+                }
               </div>
 
               <div class="studio-item__footer">
@@ -203,14 +212,23 @@
           @for (question of filteredQuestions(); track question.id) {
             <article class="studio-item studio-item--compact">
               <div class="studio-item__top">
-                <div>
-                  <div class="studio-inline-badges">
+                <div class="studio-item__content">
+                  <h3>{{ question.prompt }}</h3>
+                  <div class="studio-inline-badges studio-question-categories">
                     @for (category of question.categories; track category.id) {
                       <span class="studio-badge">{{ category.name }}</span>
                     }
                   </div>
-                  <h3>{{ question.prompt }}</h3>
                 </div>
+              </div>
+
+              <div class="studio-question-preview">
+                @for (option of question.options; track option.id) {
+                  <div class="studio-question-preview__option" [class.studio-question-preview__option--correct]="option.correct">
+                    <span class="studio-question-preview__index">{{ option.displayOrder + 1 }}</span>
+                    <strong>{{ option.content }}</strong>
+                  </div>
+                }
               </div>
 
               <div class="studio-item__footer">
