@@ -87,20 +87,32 @@
 
           <div class="studio-answer-builder" formArrayName="answers">
             @for (answerControl of answersArray().controls; track answerControl) {
-              <div class="studio-answer-builder__row">
+              <div class="studio-answer-builder__row" [formGroupName]="$index">
                 <div class="app-field">
                   <label [for]="'editor-option-' + answerLabel($index).toLowerCase()">Option {{ answerLabel($index) }}</label>
                   <input
                     class="app-input"
                     [id]="'editor-option-' + answerLabel($index).toLowerCase()"
-                    [formControlName]="$index"
+                    formControlName="content"
                     [placeholder]="'Answer ' + answerLabel($index)"
                   />
                 </div>
 
-                @if (answersArray().length > 2) {
-                  <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="removeAnswer($index)">Remove</button>
-                }
+                <div class="studio-answer-builder__row-actions">
+                  <label class="studio-answer-toggle" [for]="'editor-option-correct-' + answerLabel($index).toLowerCase()">
+                    <input
+                      class="studio-answer-toggle__input"
+                      type="checkbox"
+                      [id]="'editor-option-correct-' + answerLabel($index).toLowerCase()"
+                      formControlName="correct"
+                    />
+                    <span>Correct</span>
+                  </label>
+
+                  @if (answersArray().length > 2) {
+                    <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="removeAnswer($index)">Remove</button>
+                  }
+                </div>
               </div>
             }
           </div>
@@ -113,15 +125,6 @@
               </button>
             </div>
           }
-        </div>
-
-        <div class="app-field">
-          <label for="question-answer">Correct answer</label>
-          <select id="question-answer" class="app-input" formControlName="correctOptionIndex">
-            @for (answerControl of answersArray().controls; track answerControl) {
-              <option [ngValue]="$index">Option {{ answerLabel($index) }}</option>
-            }
-          </select>
         </div>
 
         <div class="app-actions-row">

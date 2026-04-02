@@ -31,8 +31,7 @@ describe('CourseQuestionEditorPageComponent', () => {
           options: [
             { id: 101, displayOrder: 0, content: '@RestController', correct: true },
             { id: 102, displayOrder: 1, content: '@Repository', correct: false }
-          ],
-          correctOptionIndex: 0
+          ]
         }
       ]),
       versionLoadingQuestionId: signal<number | null>(null),
@@ -60,7 +59,7 @@ describe('CourseQuestionEditorPageComponent', () => {
     };
   }
 
-  it('should send exactly one correct answer when correctOptionIndex is provided as a string', () => {
+  it('should send every checked answer as correct when saving a question', () => {
     const studioMock = createStudioServiceMock();
     const catalogMock = createCoursesCatalogServiceMock();
 
@@ -85,25 +84,26 @@ describe('CourseQuestionEditorPageComponent', () => {
 
     component.selectedComposerCategoryIds.set([1]);
     component.questionForm.patchValue({
-      prompt: 'Which annotation is typically used to expose an HTTP endpoint class?',
-      correctOptionIndex: '1' as never
+      prompt: 'Which annotations can expose or map an HTTP endpoint in Spring MVC?'
     });
-    component.answersArray().at(0).setValue('@RestController');
-    component.answersArray().at(1).setValue('@Repository');
+    component.answersArray().at(0).controls.content.setValue('@RestController');
+    component.answersArray().at(0).controls.correct.setValue(true);
+    component.answersArray().at(1).controls.content.setValue('@GetMapping');
+    component.answersArray().at(1).controls.correct.setValue(true);
 
     component.saveQuestion();
 
     expect(studioMock.createQuestion).toHaveBeenCalledOnceWith({
-      prompt: 'Which annotation is typically used to expose an HTTP endpoint class?',
+      prompt: 'Which annotations can expose or map an HTTP endpoint in Spring MVC?',
       answers: [
-        { content: '@RestController', correct: false },
-        { content: '@Repository', correct: true }
+        { content: '@RestController', correct: true },
+        { content: '@GetMapping', correct: true }
       ],
       categoryIds: [1]
     });
   });
 
-  it('should treat changing only the correct answer as a meaningful edit', () => {
+  it('should treat changing only the correct answers as a meaningful edit', () => {
     const studioMock = createStudioServiceMock();
     const catalogMock = createCoursesCatalogServiceMock();
 
@@ -128,9 +128,7 @@ describe('CourseQuestionEditorPageComponent', () => {
 
     fixture.detectChanges();
 
-    component.questionForm.patchValue({
-      correctOptionIndex: 1
-    });
+    component.answersArray().at(1).controls.correct.setValue(true);
 
     expect(component.hasQuestionChanges()).toBeTrue();
     expect(component.isSaveDisabled()).toBeFalse();
@@ -192,10 +190,10 @@ describe('CourseQuestionEditorPageComponent', () => {
 
     component.addAnswer();
     component.addAnswer();
-    component.answersArray().at(0).setValue('1');
-    component.answersArray().at(1).setValue('2');
-    component.answersArray().at(2).setValue('');
-    component.answersArray().at(3).setValue('4');
+    component.answersArray().at(0).controls.content.setValue('1');
+    component.answersArray().at(1).controls.content.setValue('2');
+    component.answersArray().at(2).controls.content.setValue('');
+    component.answersArray().at(3).controls.content.setValue('4');
 
     fixture.detectChanges();
     component.removeAnswer(2);
@@ -207,7 +205,7 @@ describe('CourseQuestionEditorPageComponent', () => {
     );
 
     expect(component.answersArray().length).toBe(3);
-    expect(component.answersArray().at(2).value).toBe('4');
+    expect(component.answersArray().at(2).controls.content.value).toBe('4');
     expect(labels).toEqual(['Option A', 'Option B', 'Option C']);
     expect(inputs.map((input) => input.value)).toEqual(['1', '2', '4']);
   });

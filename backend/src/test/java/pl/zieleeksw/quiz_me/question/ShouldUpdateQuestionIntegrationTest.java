@@ -214,6 +214,50 @@ class ShouldUpdateQuestionIntegrationTest extends BaseIntegration {
     }
 
     @Test
+    void shouldCreateNewVersionWhenAddingAnotherCorrectAnswer() throws Exception {
+        final var ownerAuthentication = authenticationApi.registerAndLogin();
+        final TestCourseDto course = createCourse(
+                ownerAuthentication.accessToken().value(),
+                new TestCreateCourseRequest(
+                        "Spring Security Associate",
+                        "A focused course for filters, JWTs, authorization rules, and access control."
+                )
+        );
+        final TestCategoryDto httpCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "HTTP");
+        final TestQuestionDto createdQuestion = createQuestion(
+                course.id(),
+                ownerAuthentication.accessToken().value(),
+                initialQuestionRequest(httpCategory.id())
+        );
+
+        final ResultActions updateResult = mockMvc.perform(put("/courses/{courseId}/questions/{questionId}", course.id(), createdQuestion.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(questionRequestWithMultipleCorrectAnswers(httpCategory.id()))));
+
+        final TestQuestionDto updatedQuestion = readResponse(updateResult, TestQuestionDto.class);
+        final ResultActions versionsResult = mockMvc.perform(get("/courses/{courseId}/questions/{questionId}/versions", course.id(), createdQuestion.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON));
+
+        final List<TestQuestionVersionDto> versions = readVersionListResponse(versionsResult);
+
+        itShouldReturnOkStatus(updateResult);
+        itShouldReturnOkStatus(versionsResult);
+        assertThat(updatedQuestion.currentVersionNumber()).isEqualTo(2);
+        assertThat(updatedQuestion.answers())
+                .extracting(TestQuestionAnswerDto::correct)
+                .containsExactly(true, true);
+        assertThat(versions).hasSize(2);
+        assertThat(versions.getFirst().answers())
+                .extracting(TestQuestionAnswerDto::correct)
+                .containsExactly(true, true);
+        assertThat(versions.get(1).answers())
+                .extracting(TestQuestionAnswerDto::correct)
+                .containsExactly(true, false);
+    }
+
+    @Test
     void shouldReturnNotFoundWhenFetchingVersionsForMissingQuestion() throws Exception {
         final String accessToken = authenticationApi.loginAsDefaultAdmin().accessToken().value();
         final TestCourseDto course = createCourse(
@@ -264,6 +308,17 @@ class ShouldUpdateQuestionIntegrationTest extends BaseIntegration {
                 "Which annotation is typically used to expose an HTTP endpoint class?",
                 List.of(
                         new TestQuestionAnswerRequest("@RestController", false),
+                        new TestQuestionAnswerRequest("@Repository", true)
+                ),
+                List.of(categoryId)
+        );
+    }
+
+    private TestUpdateQuestionRequest questionRequestWithMultipleCorrectAnswers(final Long categoryId) {
+        return new TestUpdateQuestionRequest(
+                "Which annotation is typically used to expose an HTTP endpoint class?",
+                List.of(
+                        new TestQuestionAnswerRequest("@RestController", true),
                         new TestQuestionAnswerRequest("@Repository", true)
                 ),
                 List.of(categoryId)

@@ -29,8 +29,8 @@ class QuestionAnswersValidator {
                 .filter(answer -> answer != null && answer.correct())
                 .count();
 
-        if (correctAnswers != 1) {
-            throw new IllegalArgumentException("Question must contain exactly 1 correct answer.");
+        if (correctAnswers < 1) {
+            throw new IllegalArgumentException("Question must contain at least 1 correct answer.");
         }
 
         for (final QuestionAnswerRequest answer : answers) {

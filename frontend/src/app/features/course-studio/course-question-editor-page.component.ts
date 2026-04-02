@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormArray, FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { startWith } from 'rxjs';
@@ -12,6 +12,16 @@ import { ActionButtonComponent } from '../../shared/ui/action-button/action-butt
 import { WorkspaceTopbarComponent } from '../../shared/ui/workspace-topbar/workspace-topbar.component';
 import { CoursesCatalogService } from '../dashboard/courses-catalog.service';
 import { CourseStudioService, StudioQuestionVersion } from './course-studio.service';
+
+type AnswerDraft = {
+  content: string;
+  correct: boolean;
+};
+
+type AnswerFormGroup = FormGroup<{
+  content: FormControl<string>;
+  correct: FormControl<boolean>;
+}>;
 
 @Component({
   selector: 'app-course-question-editor-page',
@@ -48,10 +58,9 @@ export class CourseQuestionEditorPageComponent {
   readonly questionForm = this.formBuilder.nonNullable.group({
     prompt: ['', [Validators.required, Validators.minLength(12)]],
     answers: this.formBuilder.nonNullable.array([
-      this.createAnswerControl(),
-      this.createAnswerControl()
-    ]),
-    correctOptionIndex: [0, [Validators.required]]
+      this.createAnswerGroup(),
+      this.createAnswerGroup()
+    ])
   });
   readonly questionFormValue = toSignal(
     this.questionForm.valueChanges.pipe(startWith(this.questionForm.getRawValue())),
@@ -90,12 +99,19 @@ export class CourseQuestionEditorPageComponent {
     }
 
     const formValue = this.questionFormValue();
-    const normalizedCorrectOptionIndex = this.normalizeCorrectOptionIndex(formValue.correctOptionIndex);
     const currentAnswerContents = question.options
       .slice()
       .sort((left, right) => left.displayOrder - right.displayOrder)
-      .map((option) => option.content.trim());
-    const draftAnswerContents = (formValue.answers ?? []).map((content) => (content ?? '').trim()).filter((content) => content.length > 0);
+      .map((option) => ({
+        content: option.content.trim(),
+        correct: option.correct
+      }));
+    const draftAnswerContents = (formValue.answers ?? [])
+      .map((answer) => ({
+        content: (answer?.content ?? '').trim(),
+        correct: Boolean(answer?.correct)
+      }))
+      .filter((answer) => answer.content.length > 0);
     const currentCategoryIds = question.categories.map((category) => category.id).slice().sort((left, right) => left - right);
     const draftCategoryIds = this.selectedComposerCategoryIds()
       .slice()
@@ -104,7 +120,6 @@ export class CourseQuestionEditorPageComponent {
     return (
       question.prompt !== (formValue.prompt?.trim() ?? '') ||
       JSON.stringify(currentAnswerContents) !== JSON.stringify(draftAnswerContents) ||
-      question.correctOptionIndex !== normalizedCorrectOptionIndex ||
       JSON.stringify(currentCategoryIds) !== JSON.stringify(draftCategoryIds)
     );
   });
@@ -142,10 +157,12 @@ export class CourseQuestionEditorPageComponent {
       }
 
       this.selectedComposerCategoryIds.set(question.categories.map((category) => category.id));
-      this.setAnswers(question.options.map((option) => option.content));
+      this.setAnswers(question.options.map((option) => ({
+        content: option.content,
+        correct: option.correct
+      })));
       this.questionForm.patchValue({
-        prompt: question.prompt,
-        correctOptionIndex: question.correctOptionIndex
+        prompt: question.prompt
       });
       this.formInitializedForQuestionId.set(questionId);
       this.loadQuestionHistory(questionId);
@@ -167,10 +184,9 @@ export class CourseQuestionEditorPageComponent {
     }
 
     const value = this.questionForm.getRawValue();
-    const normalizedCorrectOptionIndex = this.normalizeCorrectOptionIndex(value.correctOptionIndex);
-    const answers = value.answers.map((content, index) => ({
-      content: content.trim(),
-      correct: normalizedCorrectOptionIndex === index
+    const answers = value.answers.map((answer) => ({
+      content: answer.content.trim(),
+      correct: answer.correct
     }));
 
     const payload = {
@@ -223,7 +239,7 @@ export class CourseQuestionEditorPageComponent {
     );
   }
 
-  answersArray(): FormArray<FormControl<string>> {
+  answersArray(): FormArray<AnswerFormGroup> {
     return this.questionForm.controls.answers;
   }
 
@@ -236,7 +252,7 @@ export class CourseQuestionEditorPageComponent {
       return;
     }
 
-    this.answersArray().push(this.createAnswerControl());
+    this.answersArray().push(this.createAnswerGroup());
     this.questionMessage.set('');
   }
 
@@ -246,14 +262,6 @@ export class CourseQuestionEditorPageComponent {
     }
 
     this.answersArray().removeAt(index);
-    const normalizedCorrectOptionIndex = this.normalizeCorrectOptionIndex(this.questionForm.controls.correctOptionIndex.value);
-
-    if (normalizedCorrectOptionIndex > index) {
-      this.questionForm.controls.correctOptionIndex.setValue(normalizedCorrectOptionIndex - 1);
-    } else if (normalizedCorrectOptionIndex === index) {
-      this.questionForm.controls.correctOptionIndex.setValue(Math.min(index, this.answersArray().length - 1));
-    }
-
     this.questionMessage.set('');
   }
 
@@ -269,9 +277,11 @@ export class CourseQuestionEditorPageComponent {
 
   private validateQuestionForm(): string | null {
     const value = this.questionForm.getRawValue();
-    const normalizedCorrectOptionIndex = this.normalizeCorrectOptionIndex(value.correctOptionIndex);
     const prompt = value.prompt.trim();
-    const options = value.answers.map((entry) => entry.trim());
+    const options = value.answers.map((entry) => ({
+      content: entry.content.trim(),
+      correct: entry.correct
+    }));
 
     if (!this.selectedComposerCategoryIds().length) {
       return 'Choose at least one category.';
@@ -289,12 +299,12 @@ export class CourseQuestionEditorPageComponent {
       return 'Question must contain at least two answers.';
     }
 
-    if (options.some((entry) => !entry)) {
+    if (options.some((entry) => !entry.content)) {
       return 'Fill in every visible answer option.';
     }
 
-    if (!options[normalizedCorrectOptionIndex]) {
-      return 'Choose a correct answer that points to a filled option.';
+    if (!options.some((entry) => entry.correct)) {
+      return 'Choose at least one correct answer.';
     }
 
     return null;
@@ -321,29 +331,36 @@ export class CourseQuestionEditorPageComponent {
     return extractApiMessage(error) ?? 'Unable to save this question right now.';
   }
 
-  private normalizeCorrectOptionIndex(value: unknown): number {
-    return typeof value === 'number' ? value : Number(value);
-  }
-
   private resetQuestionComposer(): void {
     this.questionForm.patchValue({
-      prompt: '',
-      correctOptionIndex: 0
+      prompt: ''
     });
-    this.setAnswers(['', '']);
+    this.setAnswers([
+      { content: '', correct: false },
+      { content: '', correct: false }
+    ]);
     this.selectedComposerCategoryIds.set([]);
   }
 
-  private createAnswerControl(value = ''): FormControl<string> {
-    return this.formBuilder.nonNullable.control(value, Validators.required);
+  private createAnswerGroup(value: AnswerDraft = { content: '', correct: false }): AnswerFormGroup {
+    return this.formBuilder.nonNullable.group({
+      content: this.formBuilder.nonNullable.control(value.content, Validators.required),
+      correct: this.formBuilder.nonNullable.control(value.correct)
+    });
   }
 
-  private setAnswers(contents: string[]): void {
-    const answers = contents.length >= CourseQuestionEditorPageComponent.MIN_ANSWERS
-      ? contents
-      : [...contents, ...Array.from({ length: CourseQuestionEditorPageComponent.MIN_ANSWERS - contents.length }, () => '')];
+  private setAnswers(answerDrafts: AnswerDraft[]): void {
+    const answers = answerDrafts.length >= CourseQuestionEditorPageComponent.MIN_ANSWERS
+      ? answerDrafts
+      : [
+          ...answerDrafts,
+          ...Array.from({ length: CourseQuestionEditorPageComponent.MIN_ANSWERS - answerDrafts.length }, () => ({
+            content: '',
+            correct: false
+          }))
+        ];
     const nextArray = this.formBuilder.nonNullable.array(
-      answers.map((content) => this.createAnswerControl(content))
+      answers.map((answer) => this.createAnswerGroup(answer))
     );
 
     this.questionForm.setControl('answers', nextArray);

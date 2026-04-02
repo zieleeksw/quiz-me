@@ -90,6 +90,39 @@ class ShouldCreateQuestionIntegrationTest extends BaseIntegration {
     }
 
     @Test
+    void shouldCreateQuestionWithMultipleCorrectAnswersAsCourseOwner() throws Exception {
+        final var ownerAuthentication = authenticationApi.registerAndLogin();
+        final TestCourseDto course = createCourse(
+                ownerAuthentication.accessToken().value(),
+                new TestCreateCourseRequest(
+                        "Spring Boot Associate",
+                        "A focused course for architecture, persistence, and testing drills."
+                )
+        );
+        final TestCategoryDto webCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Web");
+
+        final ResultActions result = mockMvc.perform(post("/courses/{courseId}/questions", course.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new TestCreateQuestionRequest(
+                        "Which annotations can expose or map an HTTP endpoint in Spring MVC?",
+                        List.of(
+                                new TestQuestionAnswerRequest("@RestController", true),
+                                new TestQuestionAnswerRequest("@GetMapping", true),
+                                new TestQuestionAnswerRequest("@Entity", false)
+                        ),
+                        List.of(webCategory.id())
+                ))));
+
+        final TestQuestionDto response = readResponse(result, TestQuestionDto.class);
+
+        itShouldReturnCreatedStatus(result);
+        assertThat(response.answers())
+                .extracting(TestQuestionAnswerDto::correct)
+                .containsExactly(true, true, false);
+    }
+
+    @Test
     void shouldReturnForbiddenWhenCreatingQuestionAsRegularNonOwner() throws Exception {
         final var ownerAuthentication = authenticationApi.registerAndLogin();
         final TestCourseDto course = createCourse(
@@ -125,8 +158,8 @@ class ShouldCreateQuestionIntegrationTest extends BaseIntegration {
         final TestCreateQuestionRequest request = new TestCreateQuestionRequest(
                 "What header typically carries the bearer token for an API call?",
                 List.of(
-                        new TestQuestionAnswerRequest("Authorization", true),
-                        new TestQuestionAnswerRequest("Cookie", true)
+                        new TestQuestionAnswerRequest("Authorization", false),
+                        new TestQuestionAnswerRequest("Cookie", false)
                 ),
                 List.of(httpCategory.id())
         );
@@ -145,7 +178,7 @@ class ShouldCreateQuestionIntegrationTest extends BaseIntegration {
                         "MethodArgumentNotValidException",
                         List.of(new TestFieldValidationErrorDto.TestFieldErrorDto(
                                 "answers",
-                                "Question must contain exactly 1 correct answer."
+                                "Question must contain at least 1 correct answer."
                         ))
                 )
         );
