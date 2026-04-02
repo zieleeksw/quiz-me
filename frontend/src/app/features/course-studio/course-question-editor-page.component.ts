@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { startWith } from 'rxjs';
@@ -20,6 +20,9 @@ import { CourseStudioService, StudioQuestionVersion } from './course-studio.serv
   styleUrl: './course-question-editor-page.component.scss'
 })
 export class CourseQuestionEditorPageComponent {
+  private static readonly MIN_ANSWERS = 2;
+  private static readonly MAX_ANSWERS = 6;
+
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly coursesCatalogService = inject(CoursesCatalogService);
@@ -44,10 +47,10 @@ export class CourseQuestionEditorPageComponent {
 
   readonly questionForm = this.formBuilder.nonNullable.group({
     prompt: ['', [Validators.required, Validators.minLength(12)]],
-    optionA: ['', [Validators.required]],
-    optionB: ['', [Validators.required]],
-    optionC: [''],
-    optionD: [''],
+    answers: this.formBuilder.nonNullable.array([
+      this.createAnswerControl(),
+      this.createAnswerControl()
+    ]),
     correctOptionIndex: [0, [Validators.required]]
   });
   readonly questionFormValue = toSignal(
@@ -74,6 +77,7 @@ export class CourseQuestionEditorPageComponent {
     return this.studio.getQuestionVersions(questionId);
   });
   readonly isLoadingQuestionHistory = computed(() => this.studio.versionLoadingQuestionId() === this.questionId());
+  readonly canAddMoreAnswers = computed(() => this.answersArray().length < CourseQuestionEditorPageComponent.MAX_ANSWERS);
   readonly hasQuestionChanges = computed(() => {
     if (!this.isEditing()) {
       return true;
@@ -91,12 +95,7 @@ export class CourseQuestionEditorPageComponent {
       .slice()
       .sort((left, right) => left.displayOrder - right.displayOrder)
       .map((option) => option.content.trim());
-    const draftAnswerContents = [
-      formValue.optionA?.trim() ?? '',
-      formValue.optionB?.trim() ?? '',
-      formValue.optionC?.trim() ?? '',
-      formValue.optionD?.trim() ?? ''
-    ].filter((content) => content.length > 0);
+    const draftAnswerContents = (formValue.answers ?? []).map((content) => (content ?? '').trim()).filter((content) => content.length > 0);
     const currentCategoryIds = question.categories.map((category) => category.id).slice().sort((left, right) => left - right);
     const draftCategoryIds = this.selectedComposerCategoryIds()
       .slice()
@@ -143,12 +142,9 @@ export class CourseQuestionEditorPageComponent {
       }
 
       this.selectedComposerCategoryIds.set(question.categories.map((category) => category.id));
-      this.questionForm.setValue({
+      this.setAnswers(question.options.map((option) => option.content));
+      this.questionForm.patchValue({
         prompt: question.prompt,
-        optionA: question.options[0]?.content ?? '',
-        optionB: question.options[1]?.content ?? '',
-        optionC: question.options[2]?.content ?? '',
-        optionD: question.options[3]?.content ?? '',
         correctOptionIndex: question.correctOptionIndex
       });
       this.formInitializedForQuestionId.set(questionId);
@@ -172,12 +168,10 @@ export class CourseQuestionEditorPageComponent {
 
     const value = this.questionForm.getRawValue();
     const normalizedCorrectOptionIndex = this.normalizeCorrectOptionIndex(value.correctOptionIndex);
-    const answers = [
-      { content: value.optionA.trim(), correct: normalizedCorrectOptionIndex === 0 },
-      { content: value.optionB.trim(), correct: normalizedCorrectOptionIndex === 1 },
-      { content: value.optionC.trim(), correct: normalizedCorrectOptionIndex === 2 },
-      { content: value.optionD.trim(), correct: normalizedCorrectOptionIndex === 3 }
-    ].filter((answer) => answer.content.length > 0);
+    const answers = value.answers.map((content, index) => ({
+      content: content.trim(),
+      correct: normalizedCorrectOptionIndex === index
+    }));
 
     const payload = {
       prompt: value.prompt.trim(),
@@ -229,6 +223,40 @@ export class CourseQuestionEditorPageComponent {
     );
   }
 
+  answersArray(): FormArray<FormControl<string>> {
+    return this.questionForm.controls.answers;
+  }
+
+  answerLabel(index: number): string {
+    return String.fromCharCode(65 + index);
+  }
+
+  addAnswer(): void {
+    if (!this.canAddMoreAnswers()) {
+      return;
+    }
+
+    this.answersArray().push(this.createAnswerControl());
+    this.questionMessage.set('');
+  }
+
+  removeAnswer(index: number): void {
+    if (this.answersArray().length <= CourseQuestionEditorPageComponent.MIN_ANSWERS) {
+      return;
+    }
+
+    this.answersArray().removeAt(index);
+    const normalizedCorrectOptionIndex = this.normalizeCorrectOptionIndex(this.questionForm.controls.correctOptionIndex.value);
+
+    if (normalizedCorrectOptionIndex > index) {
+      this.questionForm.controls.correctOptionIndex.setValue(normalizedCorrectOptionIndex - 1);
+    } else if (normalizedCorrectOptionIndex === index) {
+      this.questionForm.controls.correctOptionIndex.setValue(Math.min(index, this.answersArray().length - 1));
+    }
+
+    this.questionMessage.set('');
+  }
+
   private loadQuestionHistory(questionId: number, force = false): void {
     this.questionHistoryMessage.set('');
 
@@ -243,8 +271,7 @@ export class CourseQuestionEditorPageComponent {
     const value = this.questionForm.getRawValue();
     const normalizedCorrectOptionIndex = this.normalizeCorrectOptionIndex(value.correctOptionIndex);
     const prompt = value.prompt.trim();
-    const options = [value.optionA, value.optionB, value.optionC, value.optionD].map((entry) => entry.trim());
-    const filledOptions = options.filter((entry) => entry.length > 0);
+    const options = value.answers.map((entry) => entry.trim());
 
     if (!this.selectedComposerCategoryIds().length) {
       return 'Choose at least one category.';
@@ -258,12 +285,12 @@ export class CourseQuestionEditorPageComponent {
       return 'Question prompt must be at least 12 characters long.';
     }
 
-    if (!options[0] || !options[1]) {
-      return 'Fill in at least Option A and Option B.';
+    if (options.length < CourseQuestionEditorPageComponent.MIN_ANSWERS) {
+      return 'Question must contain at least two answers.';
     }
 
-    if (filledOptions.length < 2) {
-      return 'Question must contain at least two answers.';
+    if (options.some((entry) => !entry)) {
+      return 'Fill in every visible answer option.';
     }
 
     if (!options[normalizedCorrectOptionIndex]) {
@@ -299,14 +326,26 @@ export class CourseQuestionEditorPageComponent {
   }
 
   private resetQuestionComposer(): void {
-    this.questionForm.reset({
+    this.questionForm.patchValue({
       prompt: '',
-      optionA: '',
-      optionB: '',
-      optionC: '',
-      optionD: '',
       correctOptionIndex: 0
     });
+    this.setAnswers(['', '']);
     this.selectedComposerCategoryIds.set([]);
+  }
+
+  private createAnswerControl(value = ''): FormControl<string> {
+    return this.formBuilder.nonNullable.control(value, Validators.required);
+  }
+
+  private setAnswers(contents: string[]): void {
+    const answers = contents.length >= CourseQuestionEditorPageComponent.MIN_ANSWERS
+      ? contents
+      : [...contents, ...Array.from({ length: CourseQuestionEditorPageComponent.MIN_ANSWERS - contents.length }, () => '')];
+    const nextArray = this.formBuilder.nonNullable.array(
+      answers.map((content) => this.createAnswerControl(content))
+    );
+
+    this.questionForm.setControl('answers', nextArray);
   }
 }

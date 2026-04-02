@@ -84,14 +84,12 @@ describe('CourseQuestionEditorPageComponent', () => {
     const component = fixture.componentInstance;
 
     component.selectedComposerCategoryIds.set([1]);
-    component.questionForm.setValue({
+    component.questionForm.patchValue({
       prompt: 'Which annotation is typically used to expose an HTTP endpoint class?',
-      optionA: '@RestController',
-      optionB: '@Repository',
-      optionC: '',
-      optionD: '',
       correctOptionIndex: '1' as never
     });
+    component.answersArray().at(0).setValue('@RestController');
+    component.answersArray().at(1).setValue('@Repository');
 
     component.saveQuestion();
 
@@ -136,5 +134,81 @@ describe('CourseQuestionEditorPageComponent', () => {
 
     expect(component.hasQuestionChanges()).toBeTrue();
     expect(component.isSaveDisabled()).toBeFalse();
+  });
+
+  it('should start with two answers and allow adding more', () => {
+    const studioMock = createStudioServiceMock();
+    const catalogMock = createCoursesCatalogServiceMock();
+
+    TestBed.configureTestingModule({
+      imports: [CourseQuestionEditorPageComponent],
+      providers: [
+        { provide: CourseStudioService, useValue: studioMock },
+        { provide: CoursesCatalogService, useValue: catalogMock },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({ courseSlug: '7-spring' })
+            }
+          }
+        }
+      ]
+    });
+
+    const fixture = TestBed.createComponent(CourseQuestionEditorPageComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.answersArray().length).toBe(2);
+
+    component.addAnswer();
+
+    expect(component.answersArray().length).toBe(3);
+    expect(component.answerLabel(2)).toBe('C');
+  });
+
+  it('should shift remaining answers up after removing an empty middle answer', () => {
+    const studioMock = createStudioServiceMock();
+    const catalogMock = createCoursesCatalogServiceMock();
+
+    TestBed.configureTestingModule({
+      imports: [CourseQuestionEditorPageComponent],
+      providers: [
+        { provide: CourseStudioService, useValue: studioMock },
+        { provide: CoursesCatalogService, useValue: catalogMock },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({ courseSlug: '7-spring' })
+            }
+          }
+        }
+      ]
+    });
+
+    const fixture = TestBed.createComponent(CourseQuestionEditorPageComponent);
+    const component = fixture.componentInstance;
+
+    component.addAnswer();
+    component.addAnswer();
+    component.answersArray().at(0).setValue('1');
+    component.answersArray().at(1).setValue('2');
+    component.answersArray().at(2).setValue('');
+    component.answersArray().at(3).setValue('4');
+
+    fixture.detectChanges();
+    component.removeAnswer(2);
+    fixture.detectChanges();
+
+    const inputs = Array.from(fixture.nativeElement.querySelectorAll('.studio-answer-builder input')) as HTMLInputElement[];
+    const labels = Array.from(fixture.nativeElement.querySelectorAll('.studio-answer-builder label') as NodeListOf<HTMLLabelElement>).map((label) =>
+      label.textContent?.trim()
+    );
+
+    expect(component.answersArray().length).toBe(3);
+    expect(component.answersArray().at(2).value).toBe('4');
+    expect(labels).toEqual(['Option A', 'Option B', 'Option C']);
+    expect(inputs.map((input) => input.value)).toEqual(['1', '2', '4']);
   });
 });

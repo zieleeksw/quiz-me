@@ -80,35 +80,47 @@
           ></textarea>
         </div>
 
-        <div class="studio-form__grid">
-          <div class="app-field">
-            <label for="editor-option-a">Option A</label>
-            <input id="editor-option-a" class="app-input" formControlName="optionA" placeholder="First answer" />
+        <div class="app-field">
+          <div class="studio-answer-section__head">
+            <label>Answers</label>
           </div>
 
-          <div class="app-field">
-            <label for="editor-option-b">Option B</label>
-            <input id="editor-option-b" class="app-input" formControlName="optionB" placeholder="Second answer" />
+          <div class="studio-answer-builder" formArrayName="answers">
+            @for (answerControl of answersArray().controls; track answerControl) {
+              <div class="studio-answer-builder__row">
+                <div class="app-field">
+                  <label [for]="'editor-option-' + answerLabel($index).toLowerCase()">Option {{ answerLabel($index) }}</label>
+                  <input
+                    class="app-input"
+                    [id]="'editor-option-' + answerLabel($index).toLowerCase()"
+                    [formControlName]="$index"
+                    [placeholder]="'Answer ' + answerLabel($index)"
+                  />
+                </div>
+
+                @if (answersArray().length > 2) {
+                  <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="removeAnswer($index)">Remove</button>
+                }
+              </div>
+            }
           </div>
 
-          <div class="app-field">
-            <label for="editor-option-c">Option C</label>
-            <input id="editor-option-c" class="app-input" formControlName="optionC" placeholder="Third answer" />
-          </div>
-
-          <div class="app-field">
-            <label for="editor-option-d">Option D</label>
-            <input id="editor-option-d" class="app-input" formControlName="optionD" placeholder="Fourth answer" />
-          </div>
+          @if (canAddMoreAnswers()) {
+            <div class="studio-answer-builder__add">
+              <button class="studio-answer-add-button" type="button" (click)="addAnswer()">
+                <span class="studio-answer-add-button__icon">+</span>
+                <span>Answer</span>
+              </button>
+            </div>
+          }
         </div>
 
         <div class="app-field">
           <label for="question-answer">Correct answer</label>
           <select id="question-answer" class="app-input" formControlName="correctOptionIndex">
-            <option [ngValue]="0">Option A</option>
-            <option [ngValue]="1">Option B</option>
-            <option [ngValue]="2">Option C</option>
-            <option [ngValue]="3">Option D</option>
+            @for (answerControl of answersArray().controls; track answerControl) {
+              <option [ngValue]="$index">Option {{ answerLabel($index) }}</option>
+            }
           </select>
         </div>
 
