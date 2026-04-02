@@ -3,17 +3,7 @@
 
 .question-editor-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
-}
-
-.question-editor-layout--single {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-@media (max-width: 1180px) {
-  .question-editor-layout {
-    grid-template-columns: 1fr;
-  }
 }
