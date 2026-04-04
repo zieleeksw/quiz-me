@@ -243,15 +243,8 @@
                     }
                   </div>
                   <h3>{{ quiz.title }}</h3>
-                  <p class="studio-meta">
-                    @if (quiz.mode === 'manual') {
-                      <span>{{ quiz.resolvedQuestionCount }} fixed question{{ quiz.resolvedQuestionCount === 1 ? '' : 's' }} currently live in this quiz.</span>
-                    } @else if (quiz.mode === 'random') {
-                      <span>Draws {{ quiz.randomCount }} random question{{ quiz.randomCount === 1 ? '' : 's' }} from the current bank every time it runs.</span>
-                    } @else {
-                      <span>Includes every current question from the selected categories.</span>
-                    }
-                  </p>
+                  <p class="studio-meta">{{ quizSummary(quiz) }}</p>
+                  <p class="studio-meta">{{ quizOrderSummary(quiz) }}</p>
                   @if (!quiz.active) {
                     <p class="studio-meta">This quiz is archived, so learners no longer see it on the course page, but its version history stays available here.</p>
                   }
@@ -261,18 +254,6 @@
               </div>
 
               <div class="studio-item__footer">
-                <div class="studio-meta-group">
-                  <span class="studio-meta">{{ quiz.resolvedQuestionCount }} question{{ quiz.resolvedQuestionCount === 1 ? '' : 's' }}</span>
-                  @if (quiz.mode === 'random' && quiz.randomCount) {
-                    <span class="studio-meta">Random draw: {{ quiz.randomCount }}</span>
-                  }
-                  @if (quiz.mode === 'category' && quiz.previewCategoryNames.length) {
-                    <span class="studio-meta">{{ quiz.previewCategoryNames.length }} categor{{ quiz.previewCategoryNames.length === 1 ? 'y' : 'ies' }}</span>
-                  }
-                  <span class="studio-meta">Question order: {{ quiz.questionOrder === 'random' ? 'random' : 'fixed' }}</span>
-                  <span class="studio-meta">Answer order: {{ quiz.answerOrder === 'random' ? 'random' : 'fixed' }}</span>
-                </div>
-
                 @if (quiz.active) {
                   <button class="studio-inline-button studio-inline-button--danger" type="button" [disabled]="isDeletingQuiz() === quiz.id" (click)="requestQuizArchive(quiz.id)">
                     Archive
