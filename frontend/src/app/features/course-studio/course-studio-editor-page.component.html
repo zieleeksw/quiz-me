@@ -3,7 +3,7 @@
 
   <section class="studio-hero">
     <div>
-      <p class="app-eyebrow">Creator Panel</p>
+      <p class="app-eyebrow">Settings</p>
       <h1 class="studio-title">{{ currentCourse()?.title ?? studio.courseTitle() }}</h1>
       <p class="studio-copy">
         Design the course bank once, then shape quizzes and categories inside focused tabs instead of one overloaded editor.
@@ -11,7 +11,7 @@
     </div>
 
     <div class="studio-hero__actions">
-      <app-action-button label="Back to Studio" [routerLink]="studioLink" tone="secondary" />
+      <app-action-button label="Back to Course" [routerLink]="studioLink" tone="secondary" />
     </div>
   </section>
 
@@ -384,7 +384,7 @@
         </div>
 
         <div class="studio-dialog__body" id="archive-quiz-dialog-copy">
-          <p class="studio-meta">The quiz will stay visible here in the creator panel as archived.</p>
+          <p class="studio-meta">The quiz will stay visible here in settings as archived.</p>
           <p class="studio-meta">Learners will no longer see it on the course page and will not be able to start new attempts from it.</p>
           <p class="studio-meta">Existing history and version data stay intact.</p>
         </div>
