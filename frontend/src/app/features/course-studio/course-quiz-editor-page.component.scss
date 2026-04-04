@@ -1,6 +1,136 @@
 @use './course-studio-page.component.scss' as *;
 @use './course-studio-editor-page.component.scss' as *;
 
+.studio-editor-layout {
+  align-items: stretch;
+}
+
+.studio-item[draggable='true'] {
+  cursor: grab;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.studio-item[draggable='true']:hover {
+  transform: translateY(-1px);
+  border-color: rgba(34, 108, 99, 0.2);
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
+}
+
+.studio-item[draggable='true']:active {
+  cursor: grabbing;
+}
+
+.studio-item--selected {
+  border-color: rgba(34, 108, 99, 0.28);
+  background: rgba(242, 248, 245, 0.9);
+}
+
+.studio-selection-list--basket {
+  min-height: 16rem;
+  border: 1px dashed rgba(49, 65, 95, 0.18);
+  border-radius: 18px;
+  padding: 0.8rem;
+  background: rgba(255, 255, 255, 0.42);
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.studio-selection-list--drop-active {
+  border-color: rgba(34, 108, 99, 0.34);
+  background: rgba(242, 248, 245, 0.82);
+  box-shadow: 0 0 0 4px rgba(34, 108, 99, 0.08);
+}
+
+.studio-selection-item--basket {
+  position: relative;
+  cursor: grab;
+}
+
+.studio-selection-item--basket:active {
+  cursor: grabbing;
+}
+
+.studio-selection-item--drop-before::before,
+.studio-selection-item--drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0.7rem;
+  right: 0.7rem;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(34, 108, 99, 0.92), rgba(217, 107, 67, 0.76));
+  box-shadow: 0 0 0 4px rgba(34, 108, 99, 0.08);
+}
+
+.studio-selection-item--drop-before::before {
+  top: -2px;
+}
+
+.studio-selection-item--drop-after::after {
+  bottom: -2px;
+}
+
+.studio-selection-item--basket p {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.studio-selection-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: end;
+}
+
+.studio-card--quiz-bank {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.studio-list--quiz-bank {
+  flex: 1;
+  min-height: 38rem;
+  max-height: 38rem;
+  overflow: auto;
+  padding: 0.85rem 0.2rem 0.85rem 0.85rem;
+  border: 1px solid rgba(49, 65, 95, 0.12);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.42);
+  box-sizing: border-box;
+  align-content: start;
+}
+
+.studio-list--quiz-bank .studio-item {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.studio-card--quiz-bank .studio-pagination {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(49, 65, 95, 0.1);
+}
+
 .studio-form .app-actions-row {
   margin-top: 1.2rem;
+}
+
+@media (max-width: 1180px) {
+  .studio-card--quiz-bank {
+    min-height: 0;
+  }
+
+  .studio-list--quiz-bank {
+    min-height: 24rem;
+    max-height: 34rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .studio-list--quiz-bank {
+    max-height: 28rem;
+  }
 }

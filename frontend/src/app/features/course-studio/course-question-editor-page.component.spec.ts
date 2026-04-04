@@ -165,6 +165,33 @@ describe('CourseQuestionEditorPageComponent', () => {
     expect(component.answerLabel(2)).toBe('C');
   });
 
+  it('should not report pending changes for a fresh new question form', () => {
+    const studioMock = createStudioServiceMock();
+    const catalogMock = createCoursesCatalogServiceMock();
+
+    TestBed.configureTestingModule({
+      imports: [CourseQuestionEditorPageComponent],
+      providers: [
+        { provide: CourseStudioService, useValue: studioMock },
+        { provide: CoursesCatalogService, useValue: catalogMock },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({ courseSlug: '7-spring' })
+            }
+          }
+        }
+      ]
+    });
+
+    const fixture = TestBed.createComponent(CourseQuestionEditorPageComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.hasQuestionChanges()).toBeFalse();
+    expect(component.hasPendingChanges()).toBeFalse();
+  });
+
   it('should shift remaining answers up after removing an empty middle answer', () => {
     const studioMock = createStudioServiceMock();
     const catalogMock = createCoursesCatalogServiceMock();

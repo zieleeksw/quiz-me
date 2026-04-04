@@ -30,7 +30,7 @@
   }
 
   <section class="studio-editor-layout">
-    <article class="studio-card studio-card--bank">
+    <article class="studio-card studio-card--bank studio-card--quiz-bank">
       <div class="studio-card__header">
         <p class="app-eyebrow">Question Picker</p>
         <div class="studio-card__headline">
@@ -76,9 +76,15 @@
         }
       </div>
 
-      <div class="studio-list">
-        @for (question of filteredQuestions(); track question.id) {
-          <article class="studio-item studio-item--compact">
+      <div class="studio-list studio-list--quiz-bank">
+        @for (question of pagedQuestions(); track question.id) {
+          <article
+            class="studio-item studio-item--compact"
+            draggable="true"
+            [class.studio-item--selected]="isQuestionSelected(question.id)"
+            (dragstart)="startBankQuestionDrag(question.id)"
+            (dragend)="endQuestionDrag()"
+          >
             <div class="studio-item__top">
               <div class="studio-item__content">
                 <h3>{{ question.prompt }}</h3>
@@ -105,23 +111,36 @@
                   Used in {{ studio.questionUsageCount(question.id) }} manual quiz{{ studio.questionUsageCount(question.id) === 1 ? '' : 'zes' }}
                 </span>
               </div>
-
-              <label class="studio-checkbox">
-                <input
-                  type="checkbox"
-                  [checked]="isQuestionSelected(question.id)"
-                  (change)="toggleQuestionSelection(question.id)"
-                />
-                <span>Select for quiz</span>
-              </label>
             </div>
           </article>
         } @empty {
           <div class="studio-empty">
-            <h3>No questions match this filter.</h3>
-            <p>Try another category or clear the search phrase before building the next quiz.</p>
+            <h3>No questions left in the bank view.</h3>
+            <p>Everything matching this filter is already in the basket, or there are no more questions to add.</p>
           </div>
         }
+      </div>
+
+      <div class="studio-pagination">
+        <button
+          class="studio-inline-button"
+          type="button"
+          [disabled]="!canGoToPreviousQuizPreviewPage()"
+          (click)="goToPreviousQuizPreviewPage()"
+        >
+          Previous
+        </button>
+
+        <span class="studio-meta">{{ quizPreviewPageLabel() }}</span>
+
+        <button
+          class="studio-inline-button"
+          type="button"
+          [disabled]="!canGoToNextQuizPreviewPage()"
+          (click)="goToNextQuizPreviewPage()"
+        >
+          Next
+        </button>
       </div>
     </article>
 
@@ -168,29 +187,46 @@
           <div class="studio-selection-box">
             @if (quizForm.controls.mode.value === 'manual') {
               <div class="studio-selection-box__header">
-                <strong>{{ selectedQuestionIds().length }} selected</strong>
+                <strong>{{ selectedQuestionIds().length }} in basket</strong>
                 @if (selectedQuestionIds().length) {
                   <button class="studio-inline-button" type="button" (click)="clearSelectedQuestions()">Clear</button>
                 }
               </div>
 
-              <div class="studio-selection-list">
+              <div
+                class="studio-selection-list studio-selection-list--basket"
+                [class.studio-selection-list--drop-active]="basketDropActive()"
+                (dragover)="markBasketEndDropTarget($event)"
+                (drop)="handleBasketDrop($event)"
+                (dragleave)="handleBasketDragLeave()"
+              >
                 @for (question of selectedQuestions(); track question.id) {
-                  <div class="studio-selection-item">
+                  <div
+                    class="studio-selection-item studio-selection-item--basket"
+                    draggable="true"
+                    [class.studio-selection-item--drop-before]="basketDropTarget()?.questionId === question.id && basketDropTarget()?.position === 'before'"
+                    [class.studio-selection-item--drop-after]="basketDropTarget()?.questionId === question.id && basketDropTarget()?.position === 'after'"
+                    (dragstart)="startBasketQuestionDrag(question.id)"
+                    (dragend)="endQuestionDrag()"
+                    (dragover)="markBasketItemDropTarget(question.id, $event)"
+                    (drop)="handleBasketDrop($event)"
+                  >
                     <div>
-                      <div class="studio-inline-badges">
-                        @for (category of question.categories; track category.id) {
-                          <span class="studio-badge">{{ category.name }}</span>
-                        }
-                      </div>
                       <p>{{ question.prompt }}</p>
                     </div>
-                    <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="removeSelectedQuestion(question.id)">
-                      x
-                    </button>
+                    <div class="studio-selection-item__actions">
+                      <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="removeSelectedQuestion(question.id)">
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                } @empty {
-                  <p class="studio-meta">Select questions from the bank on the left to build a manual quiz.</p>
+                }
+
+                @if (!selectedQuestions().length) {
+                  <div class="studio-empty studio-empty--compact">
+                    <h3>Drop questions here.</h3>
+                    <p>Drag questions from the bank into this basket, then drop them exactly where you want the quiz order to begin.</p>
+                  </div>
                 }
               </div>
             } @else {
@@ -203,13 +239,16 @@
           </div>
 
           <div class="app-actions-row">
-            <app-action-button
-              [label]="isEditing() ? 'Save Quiz Changes' : 'Create Quiz'"
-              [routerLink]="null"
-              [nativeType]="'submit'"
-              [disabled]="quizForm.controls.mode.value === 'manual' && !canCreateManualQuiz()"
-            />
-            <app-action-button label="Back to Quiz Library" [routerLink]="quizListLink" tone="secondary" size="compact" />
+            @if (!isEditing() || hasQuizChanges()) {
+              <app-action-button
+                [label]="isEditing() ? 'Save' : 'Create Quiz'"
+                [routerLink]="null"
+                [nativeType]="'submit'"
+                [disabled]="quizForm.controls.mode.value === 'manual' && !canCreateManualQuiz()"
+              />
+            }
+
+            <app-action-button label="Back to Quiz Library" [routerLink]="quizListLink" tone="secondary" />
           </div>
         </form>
       </article>

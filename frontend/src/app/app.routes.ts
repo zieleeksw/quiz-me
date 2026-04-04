@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 
 import { authGuard } from './core/auth/auth.guard';
 import { guestGuard } from './core/auth/guest.guard';
+import { pendingChangesGuard } from './core/navigation/pending-changes.guard';
 import { HomePageComponent } from './features/home/home-page.component';
 import { DashboardPageComponent } from './features/dashboard/dashboard-page.component';
 import { LoginPageComponent } from './features/auth/login-page.component';
@@ -50,22 +51,26 @@ export const routes: Routes = [
   {
     path: 'courses/:courseSlug/editor/questions/new',
     component: CourseQuestionEditorPageComponent,
-    canActivate: [authGuard]
+    canActivate: [authGuard],
+    canDeactivate: [pendingChangesGuard]
   },
   {
     path: 'courses/:courseSlug/editor/questions/:questionId/edit',
     component: CourseQuestionEditorPageComponent,
-    canActivate: [authGuard]
+    canActivate: [authGuard],
+    canDeactivate: [pendingChangesGuard]
   },
   {
     path: 'courses/:courseSlug/editor/quizzes/new',
     component: CourseQuizEditorPageComponent,
-    canActivate: [authGuard]
+    canActivate: [authGuard],
+    canDeactivate: [pendingChangesGuard]
   },
   {
     path: 'courses/:courseSlug/editor/quizzes/:quizId/edit',
     component: CourseQuizEditorPageComponent,
-    canActivate: [authGuard]
+    canActivate: [authGuard],
+    canDeactivate: [pendingChangesGuard]
   },
   {
     path: 'studio',

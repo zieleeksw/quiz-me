@@ -1,12 +1,11 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { startWith } from 'rxjs';
 import { finalize } from 'rxjs';
 
+import { PendingChangesAware } from '../../core/navigation/pending-changes.guard';
 import { extractApiMessage, extractFieldErrors } from '../../shared/api/api-error.utils';
 import { ActionButtonComponent } from '../../shared/ui/action-button/action-button.component';
 import { WorkspaceTopbarComponent } from '../../shared/ui/workspace-topbar/workspace-topbar.component';
@@ -23,15 +22,22 @@ type AnswerFormGroup = FormGroup<{
   correct: FormControl<boolean>;
 }>;
 
+type QuestionDraftSnapshot = {
+  prompt: string;
+  answers: AnswerDraft[];
+  categoryIds: number[];
+};
+
 @Component({
   selector: 'app-course-question-editor-page',
   imports: [DatePipe, ReactiveFormsModule, RouterLink, ActionButtonComponent, WorkspaceTopbarComponent],
   templateUrl: './course-question-editor-page.component.html',
   styleUrl: './course-question-editor-page.component.scss'
 })
-export class CourseQuestionEditorPageComponent {
+export class CourseQuestionEditorPageComponent implements PendingChangesAware {
   private static readonly MIN_ANSWERS = 2;
   private static readonly MAX_ANSWERS = 6;
+  private skipBeforeUnloadUntil = 0;
 
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
@@ -62,10 +68,6 @@ export class CourseQuestionEditorPageComponent {
       this.createAnswerGroup()
     ])
   });
-  readonly questionFormValue = toSignal(
-    this.questionForm.valueChanges.pipe(startWith(this.questionForm.getRawValue())),
-    { initialValue: this.questionForm.getRawValue() }
-  );
 
   readonly editedQuestion = computed(() => {
     const questionId = this.questionId();
@@ -88,8 +90,10 @@ export class CourseQuestionEditorPageComponent {
   readonly isLoadingQuestionHistory = computed(() => this.studio.versionLoadingQuestionId() === this.questionId());
   readonly canAddMoreAnswers = computed(() => this.answersArray().length < CourseQuestionEditorPageComponent.MAX_ANSWERS);
   readonly hasQuestionChanges = computed(() => {
+    const draft = this.captureQuestionDraft();
+
     if (!this.isEditing()) {
-      return true;
+      return !this.areQuestionDraftsEqual(draft, this.createEmptyQuestionSnapshot());
     }
 
     const question = this.editedQuestion();
@@ -98,30 +102,7 @@ export class CourseQuestionEditorPageComponent {
       return false;
     }
 
-    const formValue = this.questionFormValue();
-    const currentAnswerContents = question.options
-      .slice()
-      .sort((left, right) => left.displayOrder - right.displayOrder)
-      .map((option) => ({
-        content: option.content.trim(),
-        correct: option.correct
-      }));
-    const draftAnswerContents = (formValue.answers ?? [])
-      .map((answer) => ({
-        content: (answer?.content ?? '').trim(),
-        correct: Boolean(answer?.correct)
-      }))
-      .filter((answer) => answer.content.length > 0);
-    const currentCategoryIds = question.categories.map((category) => category.id).slice().sort((left, right) => left - right);
-    const draftCategoryIds = this.selectedComposerCategoryIds()
-      .slice()
-      .sort((left, right) => left - right);
-
-    return (
-      question.prompt !== (formValue.prompt?.trim() ?? '') ||
-      JSON.stringify(currentAnswerContents) !== JSON.stringify(draftAnswerContents) ||
-      JSON.stringify(currentCategoryIds) !== JSON.stringify(draftCategoryIds)
-    );
+    return !this.areQuestionDraftsEqual(draft, this.createQuestionSnapshotFromExistingQuestion());
   });
   readonly isSaveDisabled = computed(
     () => this.isSavingQuestion() || this.studio.isLoading() || !this.studio.activeCourseId() || (this.isEditing() && !this.hasQuestionChanges())
@@ -265,6 +246,36 @@ export class CourseQuestionEditorPageComponent {
     this.questionMessage.set('');
   }
 
+  hasPendingChanges(): boolean {
+    return this.hasQuestionChanges();
+  }
+
+  confirmDiscardChanges(): boolean {
+    const shouldLeave = window.confirm(
+      'You have unsaved question changes. Click Cancel to stay here and save them first, or OK to leave without saving.'
+    );
+
+    if (shouldLeave) {
+      this.skipBeforeUnloadUntil = Date.now() + 1500;
+    }
+
+    return shouldLeave;
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  handleBeforeUnload(event: BeforeUnloadEvent): void {
+    if (Date.now() < this.skipBeforeUnloadUntil) {
+      return;
+    }
+
+    if (!this.hasPendingChanges()) {
+      return;
+    }
+
+    event.preventDefault();
+    event.returnValue = true;
+  }
+
   private loadQuestionHistory(questionId: number, force = false): void {
     this.questionHistoryMessage.set('');
 
@@ -364,5 +375,58 @@ export class CourseQuestionEditorPageComponent {
     );
 
     this.questionForm.setControl('answers', nextArray);
+  }
+
+  private captureQuestionDraft(): QuestionDraftSnapshot {
+    const value = this.questionForm.getRawValue();
+
+    return {
+      prompt: value.prompt.trim(),
+      answers: (value.answers ?? [])
+        .map((answer) => ({
+          content: (answer?.content ?? '').trim(),
+          correct: Boolean(answer?.correct)
+        }))
+        .filter((answer) => answer.content.length > 0),
+      categoryIds: this.selectedComposerCategoryIds()
+        .slice()
+        .sort((left, right) => left - right)
+    };
+  }
+
+  private createEmptyQuestionSnapshot(): QuestionDraftSnapshot {
+    return {
+      prompt: '',
+      answers: [],
+      categoryIds: []
+    };
+  }
+
+  private createQuestionSnapshotFromExistingQuestion(): QuestionDraftSnapshot {
+    const question = this.editedQuestion();
+
+    if (!question) {
+      return this.createEmptyQuestionSnapshot();
+    }
+
+    return {
+      prompt: question.prompt,
+      answers: question.options
+        .slice()
+        .sort((left, right) => left.displayOrder - right.displayOrder)
+        .map((option) => ({
+          content: option.content.trim(),
+          correct: option.correct
+        })),
+      categoryIds: question.categories.map((category) => category.id).slice().sort((left, right) => left - right)
+    };
+  }
+
+  private areQuestionDraftsEqual(left: QuestionDraftSnapshot, right: QuestionDraftSnapshot): boolean {
+    return (
+      left.prompt === right.prompt &&
+      JSON.stringify(left.answers) === JSON.stringify(right.answers) &&
+      JSON.stringify(left.categoryIds) === JSON.stringify(right.categoryIds)
+    );
   }
 }
