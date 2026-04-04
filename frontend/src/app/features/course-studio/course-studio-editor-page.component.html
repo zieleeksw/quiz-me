@@ -141,14 +141,17 @@
 
               <div class="studio-item__footer">
                 <div class="studio-meta-group">
-                  <span class="studio-meta">Version {{ question.versionNumber }}</span>
-                  <span class="studio-meta">{{ question.options.length }} options</span>
                   <span class="studio-meta">
                     Used in {{ studio.questionUsageCount(question.id) }} manual quiz{{ studio.questionUsageCount(question.id) === 1 ? '' : 'zes' }}
                   </span>
                 </div>
 
-                <span class="studio-meta">Updated {{ question.updatedAt | date: 'd MMM yyyy, HH:mm' }}</span>
+                <div class="studio-meta-group">
+                  <span class="studio-meta">Created {{ question.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
+                  @if (question.versionNumber > 1) {
+                    <span class="studio-meta">Updated {{ question.updatedAt | date: 'd MMM yyyy, HH:mm' }}</span>
+                  }
+                </div>
               </div>
             </article>
           } @empty {
@@ -263,11 +266,16 @@
 
               <div class="studio-item__footer">
                 <div class="studio-meta-group">
-                  <span class="studio-meta">Version {{ question.versionNumber }}</span>
-                  <span class="studio-meta">{{ question.options.length }} options</span>
                   <span class="studio-meta">
                     Used in {{ studio.questionUsageCount(question.id) }} manual quiz{{ studio.questionUsageCount(question.id) === 1 ? '' : 'zes' }}
                   </span>
+                </div>
+
+                <div class="studio-meta-group">
+                  <span class="studio-meta">Created {{ question.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
+                  @if (question.versionNumber > 1) {
+                    <span class="studio-meta">Updated {{ question.updatedAt | date: 'd MMM yyyy, HH:mm' }}</span>
+                  }
                 </div>
 
                 <label class="studio-checkbox">
