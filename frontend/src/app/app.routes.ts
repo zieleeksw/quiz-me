@@ -11,6 +11,7 @@ import { CourseStudioPageComponent } from './features/course-studio/course-studi
 import { CourseStudioEditorPageComponent } from './features/course-studio/course-studio-editor-page.component';
 import { CourseQuestionEditorPageComponent } from './features/course-studio/course-question-editor-page.component';
 import { CourseQuizEditorPageComponent } from './features/course-studio/course-quiz-editor-page.component';
+import { CourseQuizPlayPageComponent } from './features/course-studio/course-quiz-play-page.component';
 
 export const routes: Routes = [
   {
@@ -41,6 +42,11 @@ export const routes: Routes = [
   {
     path: 'courses/:courseSlug/editor',
     component: CourseStudioEditorPageComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'courses/:courseSlug/quizzes/:quizId/play',
+    component: CourseQuizPlayPageComponent,
     canActivate: [authGuard]
   },
   {

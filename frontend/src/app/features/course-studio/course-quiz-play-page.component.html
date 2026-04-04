@@ -1,0 +1,141 @@
+<main class="workspace-shell studio-shell">
+  <app-workspace-topbar />
+
+  <section class="studio-hero">
+    <div>
+      <p class="app-eyebrow">Quiz Mode</p>
+      <h1 class="studio-title">{{ activeAttempt()?.quizTitle ?? activeQuiz()?.title ?? 'Quiz' }}</h1>
+      <p class="studio-copy">
+        @if (activeAttempt() && !activeAttempt()!.finished) {
+          Question {{ currentQuestionNumber() }} of {{ totalAttemptQuestions() }}. You have answered {{ answeredQuestionCount() }} so far.
+        } @else if (attemptResult()) {
+          Finished with {{ attemptResult()!.correctAnswers }} correct answers out of {{ attemptResult()!.totalQuestions }}.
+        } @else if (isQuizEmpty()) {
+          This quiz does not have any playable questions yet.
+        } @else {
+          Open the course to pick a different quiz or try this one again later.
+        }
+      </p>
+    </div>
+
+    <div class="studio-hero__actions">
+      <app-action-button label="Back to Course" [routerLink]="null" tone="secondary" (clicked)="returnToCourse()" />
+    </div>
+  </section>
+
+  @if (isQuizUnavailable()) {
+    <section class="studio-grid studio-grid--preview">
+      <article class="studio-card">
+        <div class="studio-empty">
+          <h3>This quiz is no longer available.</h3>
+          <p>It may have been archived or the link is no longer valid.</p>
+        </div>
+      </article>
+    </section>
+  } @else if (isQuizEmpty()) {
+    <section class="studio-grid studio-grid--preview">
+      <article class="studio-card">
+        <div class="studio-empty">
+          <h3>This quiz is empty right now.</h3>
+          <p>Add questions in settings first, then come back here to play it.</p>
+        </div>
+      </article>
+    </section>
+  } @else {
+    @if (activeAttempt(); as attempt) {
+    <section class="quiz-play-layout">
+      <aside class="studio-card quiz-play-sidebar">
+        <div class="quiz-play-sidebar__header">
+          <p class="app-eyebrow">Questions</p>
+          <h2>{{ answeredQuestionCount() }}/{{ totalAttemptQuestions() }} Answered</h2>
+        </div>
+
+        <div class="quiz-play-sidebar__list">
+          @for (item of questionNavItems(); track item.id) {
+            <button
+              class="quiz-play-nav"
+              type="button"
+              [class.quiz-play-nav--active]="item.active"
+              [class.quiz-play-nav--answered]="item.answered"
+              (click)="openQuestion($index)"
+            >
+              <span class="quiz-play-nav__number">Q{{ item.number }}</span>
+              <strong>{{ item.preview }}</strong>
+            </button>
+          }
+        </div>
+      </aside>
+
+      <section class="studio-card quiz-play-main">
+        @if (!attempt.finished) {
+          @if (currentQuestion(); as question) {
+            <div class="studio-card__header">
+              <p class="app-eyebrow">Question {{ currentQuestionNumber() }}</p>
+              <div class="studio-card__headline">
+                <div>
+                  <h2>{{ question.prompt }}</h2>
+                  <p class="studio-card__hint">Choose one answer, then move with the sidebar or the buttons below.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="studio-answer-grid">
+              @for (option of currentQuestionOptions(); track option.id) {
+                <button
+                  class="studio-answer"
+                  type="button"
+                  [class.studio-answer--selected]="currentAnswerIndex() === option.originalIndex"
+                  (click)="selectAnswer(option.originalIndex)"
+                >
+                  <span class="studio-answer__index">{{ answerLabel($index) }}</span>
+                  <strong>{{ option.content }}</strong>
+                </button>
+              }
+            </div>
+
+            <div class="app-actions-row">
+              @if (!isFirstQuestion()) {
+                <app-action-button label="Previous" [routerLink]="null" tone="secondary" (clicked)="goToPreviousQuestion()" />
+              }
+
+              @if (!isLastQuestion()) {
+                <app-action-button label="Next Question" [routerLink]="null" [disabled]="!canMoveForward()" (clicked)="goToNextQuestion()" />
+              } @else {
+                <app-action-button label="Finish Quiz" [routerLink]="null" [disabled]="!canMoveForward()" (clicked)="finishAttempt()" />
+              }
+            </div>
+          }
+        } @else if (attempt.result) {
+          <div class="studio-card__header">
+            <p class="app-eyebrow">Results</p>
+            <div class="studio-card__headline">
+              <div>
+                <h2>{{ attempt.quizTitle }}</h2>
+                <p class="studio-card__hint">Your points are already counted in the course stats.</p>
+              </div>
+            </div>
+          </div>
+
+          <article class="studio-item quiz-play-result">
+            <div class="studio-player__head">
+              <div>
+                <h3>Final Score</h3>
+                <p class="studio-meta">
+                  You answered {{ attempt.result.correctAnswers }} out of {{ attempt.result.totalQuestions }} questions correctly.
+                </p>
+              </div>
+
+              <strong class="studio-result__score">{{ attempt.result.correctAnswers }}/{{ attempt.result.totalQuestions }}</strong>
+            </div>
+
+            <div class="app-actions-row">
+              <app-action-button label="Play Again" [routerLink]="null" (clicked)="playAgain()" />
+              <app-action-button label="Back to Course" [routerLink]="null" tone="secondary" (clicked)="returnToCourse()" />
+            </div>
+          </article>
+        }
+      </section>
+    </section>
+    }
+  }
+</main>

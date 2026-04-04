@@ -805,6 +805,21 @@ export class CourseStudioService {
     });
   }
 
+  goToQuestion(questionIndex: number): void {
+    this.activeAttemptState.update((activeAttempt) => {
+      if (!activeAttempt || activeAttempt.finished) {
+        return activeAttempt;
+      }
+
+      const nextIndex = Math.max(0, Math.min(questionIndex, activeAttempt.questionIds.length - 1));
+
+      return {
+        ...activeAttempt,
+        currentIndex: nextIndex
+      };
+    });
+  }
+
   finishAttempt(): void {
     const activeAttempt = this.activeAttemptState();
 

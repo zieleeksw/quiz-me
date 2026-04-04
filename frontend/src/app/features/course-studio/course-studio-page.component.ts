@@ -73,6 +73,10 @@ export class CourseStudioPageComponent {
     return `${this.describeQuestionOrder(quiz.questionOrder)} and ${this.describeAnswerOrder(quiz.answerOrder)}.`;
   }
 
+  quizPlayLink(quizId: number): string[] {
+    return ['/courses', this.courseSlug, 'quizzes', String(quizId), 'play'];
+  }
+
   private describeQuestionOrder(order: 'fixed' | 'random'): string {
     return order === 'random' ? 'Questions are shown in random order' : 'Questions stay in the saved order';
   }
