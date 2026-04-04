@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { of } from 'rxjs';
 
 import { CoursesCatalogService } from '../dashboard/courses-catalog.service';
 import { CourseQuizEditorPageComponent } from './course-quiz-editor-page.component';
@@ -9,11 +10,18 @@ import { CourseStudioService } from './course-studio.service';
 describe('CourseQuizEditorPageComponent', () => {
   function createStudioServiceMock() {
     type QuizMock = {
-      id: string;
+      id: number;
+      courseId: number;
+      currentVersionNumber: number;
+      createdAt: string;
+      updatedAt: string;
       title: string;
       mode: 'manual' | 'random';
       questionIds: number[];
       randomCount: number | null;
+      questionOrder: 'fixed' | 'random';
+      answerOrder: 'fixed' | 'random';
+      categories: { id: number; name: string }[];
       resolvedQuestionCount: number;
     };
 
@@ -119,19 +127,37 @@ describe('CourseQuizEditorPageComponent', () => {
     ]);
     const quizzes = signal<QuizMock[]>([
       {
-        id: 'quiz-1',
+        id: 1,
+        courseId: 7,
+        currentVersionNumber: 1,
+        createdAt: '',
+        updatedAt: '',
         title: 'Manual quiz',
         mode: 'manual' as const,
         questionIds: [1, 2, 3, 4, 5, 6],
         randomCount: null,
+        questionOrder: 'fixed',
+        answerOrder: 'fixed',
+        categories: [],
         resolvedQuestionCount: 6
       }
     ]);
 
     return {
       loadCourseContext: jasmine.createSpy('loadCourseContext'),
-      findQuizById: jasmine.createSpy('findQuizById').and.callFake((quizId: string) => quizzes().find((quiz) => quiz.id === quizId) ?? null),
-      updateQuiz: jasmine.createSpy('updateQuiz').and.callFake((quizId: string, payload: { title: string; mode: 'manual' | 'random'; questionIds: number[]; randomCount: number | null }) => {
+      findQuizById: jasmine.createSpy('findQuizById').and.callFake((quizId: number) => quizzes().find((quiz) => quiz.id === quizId) ?? null),
+      updateQuiz: jasmine.createSpy('updateQuiz').and.callFake((
+        quizId: number,
+        payload: {
+          title: string;
+          mode: 'manual' | 'random';
+          questionIds: number[];
+          randomCount: number | null;
+          questionOrder: 'fixed' | 'random';
+          answerOrder: 'fixed' | 'random';
+          categoryIds: number[];
+        }
+      ) => {
         quizzes.update((currentQuizzes) =>
           currentQuizzes.map((quiz) =>
             quiz.id === quizId
@@ -141,12 +167,18 @@ describe('CourseQuizEditorPageComponent', () => {
                   mode: payload.mode,
                   questionIds: payload.mode === 'manual' ? payload.questionIds : [],
                   randomCount: payload.mode === 'random' ? payload.randomCount : null,
+                  questionOrder: payload.questionOrder,
+                  answerOrder: payload.answerOrder,
+                  categories: payload.categoryIds.map((categoryId) => ({ id: categoryId, name: 'HTTP' })),
                   resolvedQuestionCount: payload.mode === 'manual' ? payload.questionIds.length : currentQuizzes.length
                 }
               : quiz
           )
         );
+
+        return of(quizzes().find((quiz) => quiz.id === quizId)!);
       }),
+      createQuiz: jasmine.createSpy('createQuiz').and.returnValue(of(null)),
       questions,
       categories: signal([{ id: 1, name: 'HTTP', active: true, createdAt: '', updatedAt: '' }]),
       isLoading: signal(false),
@@ -189,7 +221,7 @@ describe('CourseQuizEditorPageComponent', () => {
           provide: ActivatedRoute,
           useValue: {
             snapshot: {
-              paramMap: convertToParamMap({ courseSlug: '7-spring', quizId: 'quiz-1' })
+              paramMap: convertToParamMap({ courseSlug: '7-spring', quizId: '1' })
             }
           }
         }
@@ -207,11 +239,14 @@ describe('CourseQuizEditorPageComponent', () => {
 
     component.createQuiz();
 
-    expect(studioMock.updateQuiz).toHaveBeenCalledOnceWith('quiz-1', {
+    expect(studioMock.updateQuiz).toHaveBeenCalledOnceWith(1, {
       title: 'Manual quiz',
       mode: 'manual',
       questionIds: [1, 2, 3, 4, 5, 6, 7],
-      randomCount: null
+      randomCount: null,
+      questionOrder: 'fixed',
+      answerOrder: 'fixed',
+      categoryIds: []
     });
     expect(component.hasQuizChanges()).toBeFalse();
   });

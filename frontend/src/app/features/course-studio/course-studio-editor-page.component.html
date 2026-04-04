@@ -216,6 +216,10 @@
           <app-action-button label="Add Quiz" [routerLink]="addQuizLink" size="compact" />
         </div>
 
+        @if (quizMessage()) {
+          <p class="studio-meta studio-meta--accent">{{ quizMessage() }}</p>
+        }
+
         <div class="studio-list">
           @for (quiz of quizPreviewCards(); track quiz.id) {
             <article class="studio-item studio-item--compact studio-item--quiz-preview">
@@ -246,9 +250,11 @@
                   @if (quiz.mode === 'random' && quiz.randomCount) {
                     <span class="studio-meta">Random draw: {{ quiz.randomCount }}</span>
                   }
+                  <span class="studio-meta">Question order: {{ quiz.questionOrder === 'random' ? 'random' : 'fixed' }}</span>
+                  <span class="studio-meta">Answer order: {{ quiz.answerOrder === 'random' ? 'random' : 'fixed' }}</span>
                 </div>
 
-                <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="studio.deleteQuiz(quiz.id)">
+                <button class="studio-inline-button studio-inline-button--danger" type="button" [disabled]="isDeletingQuiz() === quiz.id" (click)="deleteQuiz(quiz.id)">
                   Delete
                 </button>
               </div>

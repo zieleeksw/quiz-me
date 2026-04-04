@@ -37,6 +37,10 @@ public class BaseIntegration {
 
     @AfterEach
     void cleanDatabase() {
+        jdbcTemplate.execute("DELETE FROM quiz_version_categories");
+        jdbcTemplate.execute("DELETE FROM quiz_version_questions");
+        jdbcTemplate.execute("DELETE FROM quiz_versions");
+        jdbcTemplate.execute("DELETE FROM quizzes");
         jdbcTemplate.execute("DELETE FROM question_version_categories");
         jdbcTemplate.execute("DELETE FROM question_answers");
         jdbcTemplate.execute("DELETE FROM question_versions");

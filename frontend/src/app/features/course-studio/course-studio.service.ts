@@ -67,6 +67,36 @@ type SaveQuestionPayload = {
   categoryIds: number[];
 };
 
+type QuizCategoryApiDto = {
+  id: number;
+  name: string;
+};
+
+type QuizApiDto = {
+  id: number;
+  courseId: number;
+  currentVersionNumber: number;
+  createdAt: string;
+  updatedAt: string;
+  title: string;
+  mode: 'manual' | 'random';
+  randomCount: number | null;
+  questionOrder: 'fixed' | 'random';
+  answerOrder: 'fixed' | 'random';
+  questionIds: number[];
+  categories: QuizCategoryApiDto[];
+};
+
+type SaveQuizPayload = {
+  title: string;
+  mode: 'manual' | 'random';
+  randomCount: number | null;
+  questionOrder: 'fixed' | 'random';
+  answerOrder: 'fixed' | 'random';
+  questionIds: number[];
+  categoryIds: number[];
+};
+
 export type StudioCategory = {
   id: number;
   name: string;
@@ -113,11 +143,18 @@ export type StudioQuestionVersion = {
 };
 
 type QuizDefinition = {
-  id: string;
+  id: number;
+  courseId: number;
+  currentVersionNumber: number;
+  createdAt: string;
+  updatedAt: string;
   title: string;
   mode: 'manual' | 'random';
   questionIds: number[];
   randomCount: number | null;
+  questionOrder: 'fixed' | 'random';
+  answerOrder: 'fixed' | 'random';
+  categories: StudioQuestionCategory[];
 };
 
 export type StudioQuiz = QuizDefinition & {
@@ -133,7 +170,7 @@ type AttemptSummary = {
 };
 
 type ActiveAttempt = {
-  sourceQuizId: string | null;
+  sourceQuizId: number | null;
   quizTitle: string;
   questionIds: number[];
   currentIndex: number;
@@ -294,23 +331,25 @@ export class CourseStudioService {
 
     forkJoin({
       categories: this.http.get<CategoryApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/categories`),
-      questions: this.http.get<QuestionApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/questions`)
+      questions: this.http.get<QuestionApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/questions`),
+      quizzes: this.http.get<QuizApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/quizzes`)
     })
       .pipe(
-        map(({ categories, questions }) => ({
+        map(({ categories, questions, quizzes }) => ({
           categories: categories.map((category) => this.mapCategory(category)),
-          questions: questions.map((question) => this.mapQuestion(question))
+          questions: questions.map((question) => this.mapQuestion(question)),
+          quizzes: quizzes.map((quiz) => this.mapQuiz(quiz))
         })),
-        tap(({ categories, questions }) => {
+        tap(({ categories, questions, quizzes }) => {
           this.categoriesState.set(categories);
           this.questionsState.set(questions);
-          this.resetMockQuizState(questions);
+          this.quizzesState.set(quizzes);
           this.loadedState.set(true);
         }),
         catchError(() => {
           this.categoriesState.set([]);
           this.questionsState.set([]);
-          this.resetMockQuizState([]);
+          this.quizzesState.set([]);
           this.loadErrorState.set('Unable to load this course editor right now.');
           this.loadedState.set(true);
           return of(null);
@@ -414,6 +453,14 @@ export class CourseStudioService {
               ])
             )
           );
+          this.quizzesState.update((quizzes) =>
+            quizzes.map((quiz) => ({
+              ...quiz,
+              categories: quiz.categories.map((category) =>
+                category.id === updatedCategory.id ? { id: updatedCategory.id, name: updatedCategory.name } : category
+              )
+            }))
+          );
         })
       );
   }
@@ -436,6 +483,12 @@ export class CourseStudioService {
             categories: question.categories.filter((category) => category.id !== categoryId)
           }))
         );
+        this.quizzesState.update((quizzes) =>
+          quizzes.map((quiz) => ({
+            ...quiz,
+            categories: quiz.categories.filter((category) => category.id !== categoryId)
+          }))
+        );
       })
     );
   }
@@ -447,7 +500,6 @@ export class CourseStudioService {
       map((question) => this.mapQuestion(question)),
       tap((question) => {
         this.questionsState.update((questions) => [question, ...questions]);
-        this.resetQuestionSelectionForMockQuizzes();
       })
     );
   }
@@ -504,50 +556,52 @@ export class CourseStudioService {
     return this.questionVersionsState()[questionId] ?? [];
   }
 
-  addQuiz(payload: { title: string; mode: 'manual' | 'random'; questionIds: number[]; randomCount: number | null }): void {
-    const quiz: QuizDefinition = {
-      id: this.createId('quiz'),
-      title: payload.title,
-      mode: payload.mode,
-      questionIds: payload.mode === 'manual' ? payload.questionIds : [],
-      randomCount: payload.mode === 'random' ? payload.randomCount : null
-    };
+  createQuiz(payload: SaveQuizPayload) {
+    const courseId = this.requireActiveCourseId();
 
-    this.quizzesState.update((quizzes) => [quiz, ...quizzes]);
-  }
-
-  updateQuiz(
-    quizId: string,
-    payload: { title: string; mode: 'manual' | 'random'; questionIds: number[]; randomCount: number | null }
-  ): void {
-    this.quizzesState.update((quizzes) =>
-      quizzes.map((quiz) =>
-        quiz.id === quizId
-          ? {
-              ...quiz,
-              title: payload.title,
-              mode: payload.mode,
-              questionIds: payload.mode === 'manual' ? payload.questionIds : [],
-              randomCount: payload.mode === 'random' ? payload.randomCount : null
-            }
-          : quiz
-      )
+    return this.http.post<QuizApiDto>(`${this.apiBaseUrl}/courses/${courseId}/quizzes`, payload).pipe(
+      map((quiz) => this.mapQuiz(quiz)),
+      tap((quiz) => {
+        this.quizzesState.update((quizzes) => [quiz, ...quizzes]);
+      })
     );
   }
 
-  findQuizById(quizId: string): StudioQuiz | null {
+  updateQuiz(
+    quizId: number,
+    payload: SaveQuizPayload
+  ) {
+    const courseId = this.requireActiveCourseId();
+
+    return this.http.put<QuizApiDto>(`${this.apiBaseUrl}/courses/${courseId}/quizzes/${quizId}`, payload).pipe(
+      map((quiz) => this.mapQuiz(quiz)),
+      tap((updatedQuiz) => {
+        this.quizzesState.update((quizzes) =>
+          quizzes.map((quiz) => (quiz.id === quizId ? updatedQuiz : quiz))
+        );
+      })
+    );
+  }
+
+  findQuizById(quizId: number): StudioQuiz | null {
     return this.quizzes().find((quiz) => quiz.id === quizId) ?? null;
   }
 
-  deleteQuiz(quizId: string): void {
-    this.quizzesState.update((quizzes) => quizzes.filter((quiz) => quiz.id !== quizId));
+  deleteQuiz(quizId: number) {
+    const courseId = this.requireActiveCourseId();
 
-    if (this.activeAttemptState()?.sourceQuizId === quizId) {
-      this.activeAttemptState.set(null);
-    }
+    return this.http.delete<void>(`${this.apiBaseUrl}/courses/${courseId}/quizzes/${quizId}`).pipe(
+      tap(() => {
+        this.quizzesState.update((quizzes) => quizzes.filter((quiz) => quiz.id !== quizId));
+
+        if (this.activeAttemptState()?.sourceQuizId === quizId) {
+          this.activeAttemptState.set(null);
+        }
+      })
+    );
   }
 
-  startQuiz(quizId: string): void {
+  startQuiz(quizId: number): void {
     const quiz = this.quizzesState().find((entry) => entry.id === quizId);
 
     if (!quiz) {
@@ -731,56 +785,44 @@ export class CourseStudioService {
     };
   }
 
+  private mapQuiz(quiz: QuizApiDto): QuizDefinition {
+    return {
+      id: quiz.id,
+      courseId: quiz.courseId,
+      currentVersionNumber: quiz.currentVersionNumber,
+      createdAt: quiz.createdAt,
+      updatedAt: quiz.updatedAt,
+      title: quiz.title,
+      mode: quiz.mode,
+      questionIds: [...quiz.questionIds],
+      randomCount: quiz.randomCount,
+      questionOrder: quiz.questionOrder,
+      answerOrder: quiz.answerOrder,
+      categories: [...quiz.categories]
+    };
+  }
+
   private resolveQuestionIdsForQuiz(quiz: QuizDefinition): number[] {
     if (quiz.mode === 'manual') {
-      return quiz.questionIds.filter((questionId) => this.questionsState().some((question) => question.id === questionId));
+      const manualQuestionIds = quiz.questionIds.filter((questionId) => this.questionsState().some((question) => question.id === questionId));
+      return quiz.questionOrder === 'random' ? this.pickRandomQuestionIds(manualQuestionIds, manualQuestionIds.length) : manualQuestionIds;
     }
 
-    const questionIds = this.questionsState().map((question) => question.id);
-    return this.pickRandomQuestionIds(questionIds, quiz.randomCount ?? questionIds.length);
+    const filteredQuestionIds = this.questionsState()
+      .filter((question) =>
+        !quiz.categories.length || question.categories.some((category) => quiz.categories.some((quizCategory) => quizCategory.id === category.id))
+      )
+      .map((question) => question.id);
+    const selectedQuestionIds = this.pickRandomQuestionIds(filteredQuestionIds, quiz.randomCount ?? filteredQuestionIds.length);
+
+    return quiz.questionOrder === 'random'
+      ? this.pickRandomQuestionIds(selectedQuestionIds, selectedQuestionIds.length)
+      : filteredQuestionIds.filter((questionId) => selectedQuestionIds.includes(questionId));
   }
 
   private pickRandomQuestionIds(questionIds: number[], count: number): number[] {
     const shuffled = [...questionIds].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, Math.min(count, questionIds.length));
-  }
-
-  private resetMockQuizState(questions: Question[]): void {
-    const questionIds = questions.map((question) => question.id);
-
-    this.quizzesState.set([
-      {
-        id: this.createId('quiz'),
-        title: 'Spring Boot Foundations',
-        mode: 'manual',
-        questionIds: questionIds.slice(0, 3),
-        randomCount: null
-      },
-      {
-        id: this.createId('quiz'),
-        title: 'Random Checkpoint',
-        mode: 'random',
-        questionIds: [],
-        randomCount: Math.min(3, questionIds.length || 3)
-      }
-    ]);
-  }
-
-  private resetQuestionSelectionForMockQuizzes(): void {
-    this.quizzesState.update((quizzes) =>
-      quizzes.map((quiz, index) => {
-        if (quiz.mode === 'manual' && index === 0 && !quiz.questionIds.length) {
-          return {
-            ...quiz,
-            questionIds: this.questionsState()
-              .slice(0, 3)
-              .map((question) => question.id)
-          };
-        }
-
-        return quiz;
-      })
-    );
   }
 
   private sortCategories(categories: StudioCategory[]): StudioCategory[] {

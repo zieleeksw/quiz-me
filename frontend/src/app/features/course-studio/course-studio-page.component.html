@@ -66,9 +66,17 @@
               @if (quiz.mode === 'manual') {
                 <span>Built from a fixed set of course questions.</span>
               } @else {
-                <span>Pulls a fresh set of random questions from the course bank.</span>
+                <span>
+                  Pulls a fresh set of random questions
+                  {{ quiz.categories.length ? 'from selected categories.' : 'from the whole course bank.' }}
+                </span>
               }
             </p>
+
+            <div class="studio-meta-group">
+              <span class="studio-meta">Question order: {{ quiz.questionOrder === 'random' ? 'random' : 'fixed' }}</span>
+              <span class="studio-meta">Answer order: {{ quiz.answerOrder === 'random' ? 'random' : 'fixed' }}</span>
+            </div>
 
             <div class="app-actions-row">
               <app-action-button label="Start Quiz" [routerLink]="null" [nativeType]="'button'" tone="secondary" (click)="studio.startQuiz(quiz.id)" />

@@ -167,7 +167,7 @@ public class CourseFacade {
     private int placeholderQuizCount(
             final CourseEntity entity
     ) {
-        // TODO: Replace placeholder quiz totals with real course quiz definitions once that module is implemented.
+        // TODO: Replace placeholder quiz totals with real aggregated counts from persisted course quizzes.
         return switch (Math.floorMod(entity.getId().intValue(), 3)) {
             case 0 -> 3;
             case 1 -> 6;

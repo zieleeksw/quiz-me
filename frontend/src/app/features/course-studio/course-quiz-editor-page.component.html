@@ -34,9 +34,11 @@
       <div class="studio-card__header">
         <p class="app-eyebrow">Question Picker</p>
         <div class="studio-card__headline">
-          <h2>Select Questions For A Manual Quiz</h2>
+          <h2>{{ isManualMode() ? 'Select Questions For A Manual Quiz' : 'Browse The Course Bank For Random Rules' }}</h2>
           <p class="studio-card__hint">
-            Keep the question bank visible here while the composer stays pinned on the right, so bigger courses still feel manageable.
+            {{ isManualMode()
+              ? 'Keep the question bank visible here while the composer stays pinned on the right, so bigger courses still feel manageable.'
+              : 'Random quizzes pull from the whole course bank or from the categories selected on the right, so this panel stays in read-only browse mode.' }}
           </p>
         </div>
       </div>
@@ -80,9 +82,9 @@
         @for (question of pagedQuestions(); track question.id) {
           <article
             class="studio-item studio-item--compact"
-            draggable="true"
+            [attr.draggable]="isManualMode() ? 'true' : null"
             [class.studio-item--selected]="isQuestionSelected(question.id)"
-            (dragstart)="startBankQuestionDrag(question.id)"
+            (dragstart)="isManualMode() && startBankQuestionDrag(question.id)"
             (dragend)="endQuestionDrag()"
           >
             <div class="studio-item__top">
@@ -171,18 +173,46 @@
 
           <div class="studio-form__split studio-form__split--quiz-settings">
             <div class="app-field">
+              <label for="editor-question-order">Question order</label>
+              <select id="editor-question-order" class="app-input" formControlName="questionOrder">
+                <option value="fixed">Keep saved order</option>
+                <option value="random">Randomize questions</option>
+              </select>
+            </div>
+
+            <div class="app-field">
+              <label for="editor-answer-order">Answer order</label>
+              <select id="editor-answer-order" class="app-input" formControlName="answerOrder">
+                <option value="fixed">Keep answer order</option>
+                <option value="random">Randomize answers</option>
+              </select>
+            </div>
+          </div>
+
+          @if (isManualMode()) {
+            <div class="app-field">
               <label for="editor-quiz-mode">Quiz mode</label>
               <select id="editor-quiz-mode" class="app-input" formControlName="mode">
                 <option value="manual">Manual selection</option>
                 <option value="random">Random from course</option>
               </select>
             </div>
+          } @else {
+            <div class="studio-form__split studio-form__split--quiz-settings">
+              <div class="app-field">
+                <label for="editor-quiz-mode">Quiz mode</label>
+                <select id="editor-quiz-mode" class="app-input" formControlName="mode">
+                  <option value="manual">Manual selection</option>
+                  <option value="random">Random from course</option>
+                </select>
+              </div>
 
-            <div class="app-field">
-              <label for="editor-random-count">Random count</label>
-              <input id="editor-random-count" class="app-input" type="number" min="1" formControlName="randomCount" />
+              <div class="app-field">
+                <label for="editor-random-count">Random count</label>
+                <input id="editor-random-count" class="app-input" type="number" min="1" formControlName="randomCount" />
+              </div>
             </div>
-          </div>
+          }
 
           <div class="studio-selection-box">
             @if (quizForm.controls.mode.value === 'manual') {
@@ -230,11 +260,31 @@
                 }
               </div>
             } @else {
+              <div class="studio-selection-box__header">
+                <strong>Random category filters</strong>
+                <span class="studio-meta">
+                  {{ selectedRandomCategoryIds().length ? selectedRandomCategoryIds().length + ' selected' : 'All categories' }}
+                </span>
+              </div>
+
               <p class="studio-meta">
                 This quiz will sample {{ quizForm.controls.randomCount.value }} random question{{
                   quizForm.controls.randomCount.value === 1 ? '' : 's'
-                }} from the course bank every time it runs.
+                }} from the course bank every time it runs. Leave categories empty to use the whole bank.
               </p>
+
+              <div class="studio-chip-row">
+                @for (category of studio.categories(); track category.id) {
+                  <button
+                    class="studio-chip"
+                    type="button"
+                    [class.studio-chip--active]="selectedRandomCategoryIds().includes(category.id)"
+                    (click)="toggleRandomCategory(category.id)"
+                  >
+                    {{ category.name }}
+                  </button>
+                }
+              </div>
             }
           </div>
 
@@ -244,7 +294,7 @@
                 [label]="isEditing() ? 'Save' : 'Create Quiz'"
                 [routerLink]="null"
                 [nativeType]="'submit'"
-                [disabled]="quizForm.controls.mode.value === 'manual' && !canCreateManualQuiz()"
+                [disabled]="isSaveDisabled()"
               />
             }
 

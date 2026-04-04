@@ -38,6 +38,8 @@ export class CourseStudioEditorPageComponent {
   readonly editingCategoryId = signal<number | null>(null);
   readonly editingCategoryDraft = signal('');
   readonly isSavingCategory = signal(false);
+  readonly quizMessage = signal('');
+  readonly isDeletingQuiz = signal<number | null>(null);
 
   readonly questionPreviewQuestions = computed(() => this.studio.questionPreviewItems());
   readonly questionPreviewPageLabel = computed(() => {
@@ -64,8 +66,12 @@ export class CourseStudioEditorPageComponent {
       const previewQuestions =
         quiz.mode === 'manual'
           ? manualQuestions.slice(0, 3)
-          : questions.slice(0, Math.min(quiz.randomCount ?? 3, 3));
-      const previewCategoryNames = [...new Set(previewQuestions.flatMap((question) => question.categories.map((category) => category.name)))];
+          : questions
+              .filter((question) => !quiz.categories.length || question.categories.some((category) => quiz.categories.some((quizCategory) => quizCategory.id === category.id)))
+              .slice(0, Math.min(quiz.randomCount ?? 3, 3));
+      const previewCategoryNames = quiz.mode === 'manual'
+        ? [...new Set(previewQuestions.flatMap((question) => question.categories.map((category) => category.name)))]
+        : quiz.categories.map((category) => category.name);
 
       return {
         ...quiz,
@@ -123,8 +129,28 @@ export class CourseStudioEditorPageComponent {
     return ['/courses', this.courseSlug, 'editor', 'questions', questionId, 'edit'];
   }
 
-  quizEditLink(quizId: string): unknown[] {
+  quizEditLink(quizId: number): unknown[] {
     return ['/courses', this.courseSlug, 'editor', 'quizzes', quizId, 'edit'];
+  }
+
+  deleteQuiz(quizId: number): void {
+    this.isDeletingQuiz.set(quizId);
+    this.quizMessage.set('');
+
+    this.studio.deleteQuiz(quizId)
+      .pipe(
+        finalize(() => {
+          this.isDeletingQuiz.set(null);
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.quizMessage.set('Quiz has been deleted.');
+        },
+        error: (error: unknown) => {
+          this.quizMessage.set(this.resolveQuizError(error));
+        }
+      });
   }
 
   setQuestionPreviewSearch(value: string): void {
@@ -302,5 +328,19 @@ export class CourseStudioEditorPageComponent {
     }
 
     return extractApiMessage(error) ?? 'Unable to update categories right now.';
+  }
+
+  private resolveQuizError(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 403) {
+        return 'Only the course owner or an admin can change quizzes in this course.';
+      }
+
+      if (error.status === 401) {
+        return 'Your session has expired. Sign in again and try once more.';
+      }
+    }
+
+    return extractApiMessage(error) ?? 'Unable to update quizzes right now.';
   }
 }
