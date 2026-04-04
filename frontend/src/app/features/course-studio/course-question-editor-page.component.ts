@@ -37,7 +37,11 @@ type QuestionDraftSnapshot = {
 export class CourseQuestionEditorPageComponent implements PendingChangesAware {
   private static readonly MIN_ANSWERS = 2;
   private static readonly MAX_ANSWERS = 6;
+  private static readonly PROMPT_DEDUP_WINDOW_MS = 400;
   private skipBeforeUnloadUntil = 0;
+  private lastBeforeUnloadAt = 0;
+  private lastDiscardDecision: boolean | null = null;
+  private lastDiscardDecisionAt = 0;
 
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
@@ -251,13 +255,23 @@ export class CourseQuestionEditorPageComponent implements PendingChangesAware {
   }
 
   confirmDiscardChanges(): boolean {
+    const now = Date.now();
+
+    if (now - this.lastBeforeUnloadAt < CourseQuestionEditorPageComponent.PROMPT_DEDUP_WINDOW_MS) {
+      return false;
+    }
+
+    if (now - this.lastDiscardDecisionAt < CourseQuestionEditorPageComponent.PROMPT_DEDUP_WINDOW_MS && this.lastDiscardDecision !== null) {
+      return this.lastDiscardDecision;
+    }
+
+    this.skipBeforeUnloadUntil = Date.now() + 1500;
     const shouldLeave = window.confirm(
       'You have unsaved question changes. Click Cancel to stay here and save them first, or OK to leave without saving.'
     );
 
-    if (shouldLeave) {
-      this.skipBeforeUnloadUntil = Date.now() + 1500;
-    }
+    this.lastDiscardDecision = shouldLeave;
+    this.lastDiscardDecisionAt = now;
 
     return shouldLeave;
   }
@@ -272,6 +286,7 @@ export class CourseQuestionEditorPageComponent implements PendingChangesAware {
       return;
     }
 
+    this.lastBeforeUnloadAt = Date.now();
     event.preventDefault();
     event.returnValue = true;
   }

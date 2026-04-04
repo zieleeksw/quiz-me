@@ -11,7 +11,7 @@ import { CourseStudioService, StudioQuestion } from './course-studio.service';
 type QuizDraftSnapshot = {
   title: string;
   mode: 'manual' | 'random';
-  randomCount: number;
+  randomCount: number | null;
   questionIds: number[];
 };
 
@@ -24,7 +24,11 @@ type QuizDraftSnapshot = {
 export class CourseQuizEditorPageComponent implements PendingChangesAware {
   private static readonly DEFAULT_RANDOM_COUNT = 10;
   private static readonly QUESTION_PAGE_SIZE = 5;
+  private static readonly PROMPT_DEDUP_WINDOW_MS = 400;
   private skipBeforeUnloadUntil = 0;
+  private lastBeforeUnloadAt = 0;
+  private lastDiscardDecision: boolean | null = null;
+  private lastDiscardDecisionAt = 0;
 
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
@@ -59,7 +63,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
   readonly newQuizBaseline = signal<QuizDraftSnapshot>({
     title: '',
     mode: 'manual',
-    randomCount: CourseQuizEditorPageComponent.DEFAULT_RANDOM_COUNT,
+    randomCount: null,
     questionIds: []
   });
 
@@ -359,13 +363,23 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
   }
 
   confirmDiscardChanges(): boolean {
+    const now = Date.now();
+
+    if (now - this.lastBeforeUnloadAt < CourseQuizEditorPageComponent.PROMPT_DEDUP_WINDOW_MS) {
+      return false;
+    }
+
+    if (now - this.lastDiscardDecisionAt < CourseQuizEditorPageComponent.PROMPT_DEDUP_WINDOW_MS && this.lastDiscardDecision !== null) {
+      return this.lastDiscardDecision;
+    }
+
+    this.skipBeforeUnloadUntil = Date.now() + 1500;
     const shouldLeave = window.confirm(
       'You have unsaved quiz changes. Click Cancel to stay here and save them first, or OK to leave without saving.'
     );
 
-    if (shouldLeave) {
-      this.skipBeforeUnloadUntil = Date.now() + 1500;
-    }
+    this.lastDiscardDecision = shouldLeave;
+    this.lastDiscardDecisionAt = now;
 
     return shouldLeave;
   }
@@ -380,6 +394,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
       return;
     }
 
+    this.lastBeforeUnloadAt = Date.now();
     event.preventDefault();
     event.returnValue = true;
   }
@@ -449,7 +464,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
     return {
       title: value.title.trim(),
       mode: value.mode,
-      randomCount: value.randomCount,
+      randomCount: value.mode === 'random' ? value.randomCount : null,
       questionIds: [...this.selectedQuestionIds()]
     };
   }
@@ -464,7 +479,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
     return {
       title: quiz.title,
       mode: quiz.mode,
-      randomCount: quiz.randomCount ?? Math.max(quiz.resolvedQuestionCount, 1),
+      randomCount: quiz.mode === 'random' ? quiz.randomCount ?? Math.max(quiz.resolvedQuestionCount, 1) : null,
       questionIds: [...quiz.questionIds]
     };
   }
