@@ -15,6 +15,9 @@ class QuizEntity {
     @Column(name = "course_id", nullable = false)
     private Long courseId;
 
+    @Column(nullable = false)
+    private boolean active;
+
     @Column(name = "current_version_number", nullable = false)
     private int currentVersionNumber;
 
@@ -33,6 +36,7 @@ class QuizEntity {
         final QuizEntity entity = new QuizEntity();
         entity.setId(quiz.getId());
         entity.setCourseId(quiz.getCourseId());
+        entity.setActive(quiz.isActive());
         entity.setCurrentVersionNumber(quiz.getCurrentVersionNumber());
         entity.setCreatedAt(quiz.getCreatedAt());
         entity.setUpdatedAt(quiz.getUpdatedAt());
@@ -53,6 +57,14 @@ class QuizEntity {
 
     void setCourseId(final Long courseId) {
         this.courseId = courseId;
+    }
+
+    boolean isActive() {
+        return active;
+    }
+
+    void setActive(final boolean active) {
+        this.active = active;
     }
 
     int getCurrentVersionNumber() {

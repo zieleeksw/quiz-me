@@ -8,6 +8,8 @@ class Quiz {
 
     private Long courseId;
 
+    private boolean active;
+
     private int currentVersionNumber;
 
     private Instant createdAt;
@@ -20,6 +22,7 @@ class Quiz {
     ) {
         final Quiz quiz = new Quiz();
         quiz.setCourseId(courseId);
+        quiz.setActive(true);
         quiz.setCurrentVersionNumber(1);
         quiz.setCreatedAt(createdAt);
         quiz.setUpdatedAt(createdAt);
@@ -29,6 +32,7 @@ class Quiz {
     static Quiz restore(
             final Long id,
             final Long courseId,
+            final boolean active,
             final int currentVersionNumber,
             final Instant createdAt,
             final Instant updatedAt
@@ -36,6 +40,7 @@ class Quiz {
         final Quiz quiz = new Quiz();
         quiz.setId(id);
         quiz.setCourseId(courseId);
+        quiz.setActive(active);
         quiz.setCurrentVersionNumber(currentVersionNumber);
         quiz.setCreatedAt(createdAt);
         quiz.setUpdatedAt(updatedAt);
@@ -48,6 +53,13 @@ class Quiz {
         setCurrentVersionNumber(currentVersionNumber + 1);
         setUpdatedAt(updatedAt);
         return currentVersionNumber;
+    }
+
+    void archive(
+            final Instant updatedAt
+    ) {
+        setActive(false);
+        setUpdatedAt(updatedAt);
     }
 
     Long getId() {
@@ -64,6 +76,14 @@ class Quiz {
 
     void setCourseId(final Long courseId) {
         this.courseId = courseId;
+    }
+
+    boolean isActive() {
+        return active;
+    }
+
+    void setActive(final boolean active) {
+        this.active = active;
     }
 
     int getCurrentVersionNumber() {

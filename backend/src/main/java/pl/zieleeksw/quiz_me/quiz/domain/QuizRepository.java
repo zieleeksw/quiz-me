@@ -12,6 +12,4 @@ interface QuizRepository extends Repository<QuizEntity, Long> {
     Optional<QuizEntity> findById(Long id);
 
     List<QuizEntity> findAllByCourseIdOrderByCreatedAtDesc(Long courseId);
-
-    void delete(QuizEntity entity);
 }

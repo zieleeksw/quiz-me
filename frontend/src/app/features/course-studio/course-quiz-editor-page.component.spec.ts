@@ -12,6 +12,7 @@ describe('CourseQuizEditorPageComponent', () => {
     type QuizMock = {
       id: number;
       courseId: number;
+      active: boolean;
       currentVersionNumber: number;
       createdAt: string;
       updatedAt: string;
@@ -129,6 +130,7 @@ describe('CourseQuizEditorPageComponent', () => {
       {
         id: 1,
         courseId: 7,
+        active: true,
         currentVersionNumber: 1,
         createdAt: '',
         updatedAt: '',

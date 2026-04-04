@@ -22,6 +22,7 @@ import pl.zieleeksw.quiz_me.question.TestQuestionDto;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -90,6 +91,7 @@ class ShouldUpdateQuizIntegrationTest extends BaseIntegration {
 
         itShouldReturnOkStatus(updateResult);
         itShouldReturnOkStatus(versionsResult);
+        assertThat(updatedQuiz.active()).isTrue();
         assertThat(updatedQuiz.currentVersionNumber()).isEqualTo(2);
         assertThat(updatedQuiz.title()).isEqualTo("Security Drill");
         assertThat(updatedQuiz.mode()).isEqualTo("category");
@@ -157,6 +159,55 @@ class ShouldUpdateQuizIntegrationTest extends BaseIntegration {
         ));
     }
 
+    @Test
+    void shouldArchiveQuizInsteadOfDeletingItPermanently() throws Exception {
+        final var ownerAuthentication = authenticationApi.registerAndLogin();
+        final TestCourseDto course = createCourse(ownerAuthentication.accessToken().value(), new TestCreateCourseRequest(
+                "Spring Security Associate",
+                "A focused course for filters, JWTs, authorization rules, and access control."
+        ));
+        final TestCategoryDto securityCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Security");
+        createQuestion(course.id(), ownerAuthentication.accessToken().value(), new TestCreateQuestionRequest(
+                "Which filter usually inspects the bearer token in a security chain?",
+                List.of(
+                        new TestQuestionAnswerRequest("JwtAuthenticationFilter", true),
+                        new TestQuestionAnswerRequest("DispatcherServlet", false)
+                ),
+                List.of(securityCategory.id())
+        ));
+        final TestQuizDto createdQuiz = createQuiz(course.id(), ownerAuthentication.accessToken().value(), new TestCreateQuizRequest(
+                "Security Drill",
+                "category",
+                null,
+                "random",
+                "fixed",
+                List.of(),
+                List.of(securityCategory.id())
+        ));
+
+        final ResultActions archiveResult = mockMvc.perform(delete("/courses/{courseId}/quizzes/{quizId}", course.id(), createdQuiz.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON));
+        final ResultActions fetchResult = mockMvc.perform(get("/courses/{courseId}/quizzes", course.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON));
+        final ResultActions versionsResult = mockMvc.perform(get("/courses/{courseId}/quizzes/{quizId}/versions", course.id(), createdQuiz.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON));
+
+        final List<TestQuizDto> quizzes = readQuizList(fetchResult);
+        final List<TestQuizVersionDto> versions = readVersions(versionsResult);
+
+        itShouldReturnOkStatus(fetchResult);
+        itShouldReturnOkStatus(versionsResult);
+        assertThat(archiveResult.andReturn().getResponse().getStatus()).isEqualTo(204);
+        assertThat(quizzes).hasSize(1);
+        assertThat(quizzes.getFirst().id()).isEqualTo(createdQuiz.id());
+        assertThat(quizzes.getFirst().active()).isFalse();
+        assertThat(versions).hasSize(1);
+        assertThat(versions.getFirst().quizId()).isEqualTo(createdQuiz.id());
+    }
+
     private TestCategoryDto createCategory(
             final Long courseId,
             final String accessToken,
@@ -213,6 +264,13 @@ class ShouldUpdateQuizIntegrationTest extends BaseIntegration {
     }
 
     private List<TestQuizVersionDto> readVersions(
+            final ResultActions result
+    ) throws Exception {
+        return objectMapper.readValue(result.andReturn().getResponse().getContentAsString(), new TypeReference<>() {
+        });
+    }
+
+    private List<TestQuizDto> readQuizList(
             final ResultActions result
     ) throws Exception {
         return objectMapper.readValue(result.andReturn().getResponse().getContentAsString(), new TypeReference<>() {

@@ -132,6 +132,7 @@ public class QuizFacade {
         final Quiz quiz = Quiz.restore(
                 entity.getId(),
                 entity.getCourseId(),
+                entity.isActive(),
                 entity.getCurrentVersionNumber(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
@@ -166,8 +167,17 @@ public class QuizFacade {
         final CourseDto course = courseFacade.findCourseByIdOrThrow(courseId);
         assertCanManageCourse(course, actorUserId, isAdmin);
 
-        final QuizEntity quiz = findQuizInCourse(quizId, courseId);
-        quizRepository.delete(quiz);
+        final QuizEntity entity = findActiveQuizInCourse(quizId, courseId);
+        final Quiz quiz = Quiz.restore(
+                entity.getId(),
+                entity.getCourseId(),
+                entity.isActive(),
+                entity.getCurrentVersionNumber(),
+                entity.getCreatedAt(),
+                entity.getUpdatedAt()
+        );
+        quiz.archive(roundToDatabasePrecision(Instant.now()));
+        quizRepository.save(QuizEntity.from(quiz));
     }
 
     private QuizDraft validateAndCreateDraft(
@@ -331,6 +341,19 @@ public class QuizFacade {
         return quiz;
     }
 
+    private QuizEntity findActiveQuizInCourse(
+            final Long quizId,
+            final Long courseId
+    ) {
+        final QuizEntity quiz = findQuizInCourse(quizId, courseId);
+
+        if (!quiz.isActive()) {
+            throw QuizNotFoundException.forId(quizId);
+        }
+
+        return quiz;
+    }
+
     private QuizDto toCurrentQuizDto(
             final QuizEntity quiz
     ) {
@@ -350,6 +373,7 @@ public class QuizFacade {
         return new QuizDto(
                 quiz.getId(),
                 quiz.getCourseId(),
+                quiz.isActive(),
                 quiz.getCurrentVersionNumber(),
                 quiz.getCreatedAt(),
                 quiz.getUpdatedAt(),

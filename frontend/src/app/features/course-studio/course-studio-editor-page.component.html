@@ -47,7 +47,12 @@
     >
       <span class="studio-tab__eyebrow">Quiz Composer</span>
       <strong>Quizzes</strong>
-      <small>{{ studio.totalQuizzes() }} learner-facing variants</small>
+      <small>
+        {{ studio.totalQuizzes() }} active
+        @if (studio.totalArchivedQuizzes()) {
+          <span>, {{ studio.totalArchivedQuizzes() }} archived</span>
+        }
+      </small>
     </button>
 
     <button
@@ -210,7 +215,10 @@
 
         <div class="studio-list-header">
           <div class="studio-meta-group">
-            <span class="studio-meta">{{ studio.totalQuizzes() }} quiz variant{{ studio.totalQuizzes() === 1 ? '' : 's' }}</span>
+            <span class="studio-meta">{{ studio.totalQuizzes() }} active quiz variant{{ studio.totalQuizzes() === 1 ? '' : 's' }}</span>
+            @if (studio.totalArchivedQuizzes()) {
+              <span class="studio-meta">{{ studio.totalArchivedQuizzes() }} archived</span>
+            }
           </div>
 
           <app-action-button label="Add Quiz" [routerLink]="addQuizLink" size="compact" />
@@ -229,6 +237,7 @@
                     <span class="studio-badge studio-badge--quiz">
                       {{ quiz.mode === 'manual' ? 'Manual quiz' : quiz.mode === 'random' ? 'Random quiz' : 'Category quiz' }}
                     </span>
+                    <span class="studio-badge" [class.studio-badge--archived]="!quiz.active">{{ quizStatusLabel(quiz.active) }}</span>
                     @for (categoryName of quiz.previewCategoryNames; track categoryName) {
                       <span class="studio-badge">{{ categoryName }}</span>
                     }
@@ -243,6 +252,9 @@
                       <span>Includes every current question from the selected categories.</span>
                     }
                   </p>
+                  @if (!quiz.active) {
+                    <p class="studio-meta">This quiz is archived, so learners no longer see it on the course page, but its version history stays available here.</p>
+                  }
                 </div>
 
                 <app-action-button label="Edit Quiz" [routerLink]="quizEditLink(quiz.id)" tone="secondary" size="compact" />
@@ -261,9 +273,13 @@
                   <span class="studio-meta">Answer order: {{ quiz.answerOrder === 'random' ? 'random' : 'fixed' }}</span>
                 </div>
 
-                <button class="studio-inline-button studio-inline-button--danger" type="button" [disabled]="isDeletingQuiz() === quiz.id" (click)="deleteQuiz(quiz.id)">
-                  Delete
-                </button>
+                @if (quiz.active) {
+                  <button class="studio-inline-button studio-inline-button--danger" type="button" [disabled]="isDeletingQuiz() === quiz.id" (click)="requestQuizArchive(quiz.id)">
+                    Archive
+                  </button>
+                } @else {
+                  <span class="studio-meta">Archived</span>
+                }
               </div>
             </article>
           } @empty {
@@ -350,5 +366,39 @@
         </div>
       </article>
     </section>
+  }
+
+  @if (archiveConfirmationQuizId(); as quizId) {
+    <div class="studio-dialog-backdrop" role="presentation" (click)="cancelQuizArchive()">
+      <section
+        class="studio-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="archive-quiz-dialog-title"
+        aria-describedby="archive-quiz-dialog-copy"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="studio-dialog__header">
+          <p class="app-eyebrow">Archive Quiz</p>
+          <h2 id="archive-quiz-dialog-title">Archive "{{ archiveConfirmationQuizTitle() }}"?</h2>
+        </div>
+
+        <div class="studio-dialog__body" id="archive-quiz-dialog-copy">
+          <p class="studio-meta">The quiz will stay visible here in the creator panel as archived.</p>
+          <p class="studio-meta">Learners will no longer see it on the course page and will not be able to start new attempts from it.</p>
+          <p class="studio-meta">Existing history and version data stay intact.</p>
+        </div>
+
+        <div class="studio-dialog__actions">
+          <app-action-button label="Keep Quiz" [routerLink]="null" tone="secondary" (clicked)="cancelQuizArchive()" />
+          <app-action-button
+            label="Archive Quiz"
+            [routerLink]="null"
+            [disabled]="isDeletingQuiz() === quizId"
+            (clicked)="confirmQuizArchive()"
+          />
+        </div>
+      </section>
+    </div>
   }
 </main>

@@ -75,6 +75,7 @@ type QuizCategoryApiDto = {
 type QuizApiDto = {
   id: number;
   courseId: number;
+  active: boolean;
   currentVersionNumber: number;
   createdAt: string;
   updatedAt: string;
@@ -159,6 +160,7 @@ export type StudioQuestionVersion = {
 type QuizDefinition = {
   id: number;
   courseId: number;
+  active: boolean;
   currentVersionNumber: number;
   createdAt: string;
   updatedAt: string;
@@ -284,16 +286,18 @@ export class CourseStudioService {
     }))
   );
 
-  readonly quizzes = computed<StudioQuiz[]>(() =>
+  readonly allQuizzes = computed<StudioQuiz[]>(() =>
     this.quizzesState().map((quiz) => ({
       ...quiz,
       resolvedQuestionCount: this.resolveQuestionIdsForQuiz(quiz).length
     }))
   );
+  readonly quizzes = computed<StudioQuiz[]>(() => this.allQuizzes().filter((quiz) => quiz.active));
   readonly attempts = computed(() => this.attemptsState());
   readonly activeAttempt = computed(() => this.activeAttemptState());
   readonly totalQuestions = computed(() => this.questionsState().length);
-  readonly totalQuizzes = computed(() => this.quizzesState().length);
+  readonly totalQuizzes = computed(() => this.quizzes().length);
+  readonly totalArchivedQuizzes = computed(() => this.allQuizzes().filter((quiz) => !quiz.active).length);
   readonly totalAttempts = computed(() => this.attemptsState().length);
   readonly averageScore = computed(() => {
     const attempts = this.attemptsState();
@@ -681,15 +685,24 @@ export class CourseStudioService {
   }
 
   findQuizById(quizId: number): StudioQuiz | null {
-    return this.quizzes().find((quiz) => quiz.id === quizId) ?? null;
+    return this.allQuizzes().find((quiz) => quiz.id === quizId) ?? null;
   }
 
-  deleteQuiz(quizId: number) {
+  archiveQuiz(quizId: number) {
     const courseId = this.requireActiveCourseId();
 
     return this.http.delete<void>(`${this.apiBaseUrl}/courses/${courseId}/quizzes/${quizId}`).pipe(
       tap(() => {
-        this.quizzesState.update((quizzes) => quizzes.filter((quiz) => quiz.id !== quizId));
+        this.quizzesState.update((quizzes) =>
+          quizzes.map((quiz) =>
+            quiz.id === quizId
+              ? {
+                  ...quiz,
+                  active: false
+                }
+              : quiz
+          )
+        );
 
         if (this.activeAttemptState()?.sourceQuizId === quizId) {
           this.activeAttemptState.set(null);
@@ -699,7 +712,7 @@ export class CourseStudioService {
   }
 
   startQuiz(quizId: number): void {
-    const quiz = this.quizzesState().find((entry) => entry.id === quizId);
+    const quiz = this.quizzesState().find((entry) => entry.id === quizId && entry.active);
 
     if (!quiz) {
       return;
@@ -833,7 +846,7 @@ export class CourseStudioService {
 
   questionUsageCount(questionId: number): number {
     return this.quizzesState().reduce((accumulator, quiz) => {
-      if (quiz.mode === 'manual') {
+      if (quiz.active && quiz.mode === 'manual') {
         return accumulator + Number(quiz.questionIds.includes(questionId));
       }
 
@@ -886,6 +899,7 @@ export class CourseStudioService {
     return {
       id: quiz.id,
       courseId: quiz.courseId,
+      active: quiz.active,
       currentVersionNumber: quiz.currentVersionNumber,
       createdAt: quiz.createdAt,
       updatedAt: quiz.updatedAt,

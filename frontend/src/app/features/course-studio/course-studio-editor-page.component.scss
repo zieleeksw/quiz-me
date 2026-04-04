@@ -156,6 +156,11 @@
   color: var(--color-secondary-strong);
 }
 
+.studio-badge--archived {
+  background: rgba(49, 65, 95, 0.12);
+  color: var(--color-ink-800);
+}
+
 .studio-item__content {
   display: grid;
   gap: 0.4rem;
@@ -430,6 +435,51 @@
   border-radius: inherit;
 }
 
+.studio-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(23, 32, 51, 0.46);
+  backdrop-filter: blur(8px);
+}
+
+.studio-dialog {
+  width: min(100%, 34rem);
+  padding: 1.35rem;
+  border: 1px solid rgba(49, 65, 95, 0.14);
+  border-radius: var(--radius-xl);
+  background: var(--gradient-card);
+  box-shadow: 0 32px 80px rgba(17, 24, 39, 0.24);
+  display: grid;
+  gap: 1rem;
+}
+
+.studio-dialog__header,
+.studio-dialog__body {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.studio-dialog__header h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.studio-dialog__body p {
+  margin: 0;
+}
+
+.studio-dialog__actions {
+  display: flex;
+  justify-content: end;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
 .studio-pagination {
   display: flex;
   justify-content: space-between;
@@ -470,6 +520,7 @@
   .studio-selection-box__header,
   .studio-bank-summary,
   .studio-list-header,
+  .studio-dialog__actions,
   .studio-pagination,
   .studio-category-item__head,
   .studio-category-item__actions,

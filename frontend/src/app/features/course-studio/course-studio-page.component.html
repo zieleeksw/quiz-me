@@ -79,6 +79,11 @@
               <app-action-button label="Start Quiz" [routerLink]="null" [nativeType]="'button'" tone="secondary" (click)="studio.startQuiz(quiz.id)" />
             </div>
           </article>
+        } @empty {
+          <div class="studio-empty">
+            <h3>No published quizzes are available right now.</h3>
+            <p>This course still exists, but every learner-facing quiz is currently archived or not yet prepared.</p>
+          </div>
         }
       </div>
     </article>

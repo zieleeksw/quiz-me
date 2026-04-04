@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
@@ -40,6 +40,7 @@ export class CourseStudioEditorPageComponent {
   readonly isSavingCategory = signal(false);
   readonly quizMessage = signal('');
   readonly isDeletingQuiz = signal<number | null>(null);
+  readonly archiveConfirmationQuizId = signal<number | null>(null);
 
   readonly questionPreviewQuestions = computed(() => this.studio.questionPreviewItems());
   readonly questionPreviewPageLabel = computed(() => {
@@ -56,7 +57,7 @@ export class CourseStudioEditorPageComponent {
   readonly quizPreviewCards = computed(() => {
     const questions = this.studio.questions();
 
-    return this.studio.quizzes().map((quiz) => {
+    return this.studio.allQuizzes().map((quiz) => {
       const manualQuestions =
         quiz.mode === 'manual'
           ? quiz.questionIds
@@ -133,11 +134,42 @@ export class CourseStudioEditorPageComponent {
     return ['/courses', this.courseSlug, 'editor', 'quizzes', quizId, 'edit'];
   }
 
-  deleteQuiz(quizId: number): void {
+  requestQuizArchive(quizId: number): void {
+    const quiz = this.studio.findQuizById(quizId);
+
+    if (!quiz?.active) {
+      return;
+    }
+
+    this.archiveConfirmationQuizId.set(quizId);
+  }
+
+  cancelQuizArchive(): void {
+    if (this.isDeletingQuiz() !== null) {
+      return;
+    }
+
+    this.archiveConfirmationQuizId.set(null);
+  }
+
+  confirmQuizArchive(): void {
+    const quizId = this.archiveConfirmationQuizId();
+
+    if (!quizId) {
+      return;
+    }
+
+    const quiz = this.studio.findQuizById(quizId);
+
+    if (!quiz?.active) {
+      this.archiveConfirmationQuizId.set(null);
+      return;
+    }
+
     this.isDeletingQuiz.set(quizId);
     this.quizMessage.set('');
 
-    this.studio.deleteQuiz(quizId)
+    this.studio.archiveQuiz(quizId)
       .pipe(
         finalize(() => {
           this.isDeletingQuiz.set(null);
@@ -145,12 +177,26 @@ export class CourseStudioEditorPageComponent {
       )
       .subscribe({
         next: () => {
-          this.quizMessage.set('Quiz has been deleted.');
+          this.archiveConfirmationQuizId.set(null);
+          this.quizMessage.set(`Quiz "${quiz.title}" has been archived.`);
         },
         error: (error: unknown) => {
           this.quizMessage.set(this.resolveQuizError(error));
         }
       });
+  }
+
+  archiveConfirmationQuizTitle(): string {
+    return this.studio.findQuizById(this.archiveConfirmationQuizId() ?? -1)?.title ?? 'this quiz';
+  }
+
+  quizStatusLabel(active: boolean): string {
+    return active ? 'Active' : 'Archived';
+  }
+
+  @HostListener('window:keydown.escape')
+  handleEscape(): void {
+    this.cancelQuizArchive();
   }
 
   setQuestionPreviewSearch(value: string): void {

@@ -83,6 +83,7 @@ class ShouldCreateQuizIntegrationTest extends BaseIntegration {
         itShouldReturnCreatedStatus(result);
         assertThat(response.id()).isNotNull();
         assertThat(response.courseId()).isEqualTo(course.id());
+        assertThat(response.active()).isTrue();
         assertThat(response.currentVersionNumber()).isEqualTo(1);
         assertThat(response.title()).isEqualTo("HTTP Foundations");
         assertThat(response.mode()).isEqualTo("manual");
@@ -126,6 +127,7 @@ class ShouldCreateQuizIntegrationTest extends BaseIntegration {
         final TestQuizDto response = readResponse(result, TestQuizDto.class);
 
         itShouldReturnCreatedStatus(result);
+        assertThat(response.active()).isTrue();
         assertThat(response.mode()).isEqualTo("random");
         assertThat(response.randomCount()).isEqualTo(5);
         assertThat(response.questionIds()).isEmpty();
@@ -165,6 +167,7 @@ class ShouldCreateQuizIntegrationTest extends BaseIntegration {
         final TestQuizDto response = readResponse(result, TestQuizDto.class);
 
         itShouldReturnCreatedStatus(result);
+        assertThat(response.active()).isTrue();
         assertThat(response.mode()).isEqualTo("category");
         assertThat(response.randomCount()).isNull();
         assertThat(response.questionIds()).isEmpty();

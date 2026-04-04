@@ -6,6 +6,7 @@ import java.util.List;
 public record TestQuizDto(
         Long id,
         Long courseId,
+        boolean active,
         int currentVersionNumber,
         Instant createdAt,
         Instant updatedAt,
