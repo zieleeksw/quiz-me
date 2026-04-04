@@ -81,9 +81,9 @@
             <input
               id="bank-search"
               class="app-input"
-              [value]="bankSearch()"
+              [value]="questionPreviewSearch()"
               placeholder="Search by wording or category"
-              (input)="setBankSearch(($any($event.target).value))"
+              (input)="setQuestionPreviewSearch(($any($event.target).value))"
             />
           </div>
         </div>
@@ -93,8 +93,8 @@
             <button
               class="studio-chip"
               type="button"
-              [class.studio-chip--active]="activeCategoryFilter() === 'All'"
-              (click)="setCategoryFilter('All')"
+              [class.studio-chip--active]="questionPreviewCategoryFilter() === 'All'"
+              (click)="setQuestionPreviewCategoryFilter('All')"
             >
               All categories
             </button>
@@ -103,8 +103,8 @@
               <button
                 class="studio-chip"
                 type="button"
-                [class.studio-chip--active]="activeCategoryFilter() === category.id"
-                (click)="setCategoryFilter(category.id)"
+                [class.studio-chip--active]="questionPreviewCategoryFilter() === category.id"
+                (click)="setQuestionPreviewCategoryFilter(category.id)"
               >
                 {{ category.name }}
               </button>
@@ -114,8 +114,8 @@
           <app-action-button label="Add Question" [routerLink]="addQuestionLink" size="compact" />
         </div>
 
-        <div class="studio-list">
-          @for (question of filteredQuestions(); track question.id) {
+        <div class="studio-list studio-list--preview" [class.studio-list--loading]="studio.isQuestionPreviewLoading()">
+          @for (question of questionPreviewQuestions(); track question.id) {
             <article class="studio-item studio-item--compact">
               <div class="studio-item__top">
                 <div class="studio-item__content">
@@ -152,11 +152,41 @@
               </div>
             </article>
           } @empty {
+            @if (!studio.isQuestionPreviewLoading()) {
             <div class="studio-empty">
               <h3>No questions match this filter.</h3>
               <p>Try another category, clear the search phrase, or open the dedicated add question screen.</p>
             </div>
+            }
           }
+
+          @if (studio.isQuestionPreviewLoading() && questionPreviewQuestions().length) {
+            <div class="studio-list-overlay">
+              <span class="studio-meta">Refreshing results...</span>
+            </div>
+          }
+        </div>
+
+        <div class="studio-pagination">
+          <button
+            class="studio-inline-button"
+            type="button"
+            [disabled]="!canGoToPreviousQuestionPreviewPage()"
+            (click)="goToPreviousQuestionPreviewPage()"
+          >
+            Previous
+          </button>
+
+          <span class="studio-meta">{{ questionPreviewPageLabel() }}</span>
+
+          <button
+            class="studio-inline-button"
+            type="button"
+            [disabled]="!canGoToNextQuestionPreviewPage()"
+            (click)="goToNextQuestionPreviewPage()"
+          >
+            Next
+          </button>
         </div>
       </article>
     </section>
@@ -179,9 +209,9 @@
             <input
               id="quiz-bank-search"
               class="app-input"
-              [value]="bankSearch()"
+              [value]="quizBankSearch()"
               placeholder="Search by wording or category"
-              (input)="setBankSearch(($any($event.target).value))"
+              (input)="setQuizBankSearch(($any($event.target).value))"
             />
           </div>
         </div>
@@ -190,8 +220,8 @@
           <button
             class="studio-chip"
             type="button"
-            [class.studio-chip--active]="activeCategoryFilter() === 'All'"
-            (click)="setCategoryFilter('All')"
+            [class.studio-chip--active]="quizCategoryFilter() === 'All'"
+            (click)="setQuizCategoryFilter('All')"
           >
             All categories
           </button>
@@ -200,8 +230,8 @@
             <button
               class="studio-chip"
               type="button"
-              [class.studio-chip--active]="activeCategoryFilter() === category.id"
-              (click)="setCategoryFilter(category.id)"
+              [class.studio-chip--active]="quizCategoryFilter() === category.id"
+              (click)="setQuizCategoryFilter(category.id)"
             >
               {{ category.name }}
             </button>

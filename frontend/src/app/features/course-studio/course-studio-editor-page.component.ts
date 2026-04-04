@@ -30,8 +30,11 @@ export class CourseStudioEditorPageComponent {
   readonly activeTab = signal<'questions' | 'quizzes' | 'categories'>('questions');
 
   readonly selectedQuestionIds = signal<number[]>([]);
-  readonly bankSearch = signal('');
-  readonly activeCategoryFilter = signal<number | 'All'>('All');
+  readonly questionPreviewSearch = signal('');
+  readonly questionPreviewCategoryFilter = signal<number | 'All'>('All');
+  readonly questionPreviewRequestedPage = signal(0);
+  readonly quizBankSearch = signal('');
+  readonly quizCategoryFilter = signal<number | 'All'>('All');
   readonly newManagedCategory = signal('');
   readonly categoryMessage = signal('');
   readonly editingCategoryId = signal<number | null>(null);
@@ -44,9 +47,22 @@ export class CourseStudioEditorPageComponent {
     randomCount: [10, [Validators.min(1)]]
   });
 
+  readonly questionPreviewQuestions = computed(() => this.studio.questionPreviewItems());
+  readonly questionPreviewPageLabel = computed(() => {
+    if (!this.studio.questionPreviewTotalPages()) {
+      return 'Page 0 of 0';
+    }
+
+    return `Page ${this.studio.questionPreviewPageNumber() + 1} of ${this.studio.questionPreviewTotalPages()}`;
+  });
+  readonly canGoToPreviousQuestionPreviewPage = computed(() => this.studio.questionPreviewPageNumber() > 0);
+  readonly canGoToNextQuestionPreviewPage = computed(
+    () => this.studio.questionPreviewTotalPages() > 0 && this.studio.questionPreviewPageNumber() < this.studio.questionPreviewTotalPages() - 1
+  );
+
   readonly filteredQuestions = computed(() => {
-    const normalizedSearch = this.bankSearch().trim().toLowerCase();
-    const activeCategory = this.activeCategoryFilter();
+    const normalizedSearch = this.quizBankSearch().trim().toLowerCase();
+    const activeCategory = this.quizCategoryFilter();
 
     return this.studio.questions().filter((question) => {
       const matchesCategory =
@@ -80,12 +96,35 @@ export class CourseStudioEditorPageComponent {
     });
 
     effect(() => {
+      const course = this.currentCourse();
+
+      if (!course) {
+        return;
+      }
+
+      const previewCategoryId = this.questionPreviewCategoryFilter();
+
+      this.studio.loadQuestionPreview(
+        course.id,
+        this.questionPreviewRequestedPage(),
+        5,
+        this.questionPreviewSearch(),
+        previewCategoryId === 'All' ? null : previewCategoryId
+      ).subscribe();
+    });
+
+    effect(() => {
       const categories = this.studio.categories();
       const availableIds = new Set(categories.map((category) => category.id));
-      const activeFilter = this.activeCategoryFilter();
+      const activeQuestionPreviewFilter = this.questionPreviewCategoryFilter();
+      const activeQuizFilter = this.quizCategoryFilter();
 
-      if (activeFilter !== 'All' && !availableIds.has(activeFilter)) {
-        this.activeCategoryFilter.set('All');
+      if (activeQuestionPreviewFilter !== 'All' && !availableIds.has(activeQuestionPreviewFilter)) {
+        this.questionPreviewCategoryFilter.set('All');
+      }
+
+      if (activeQuizFilter !== 'All' && !availableIds.has(activeQuizFilter)) {
+        this.quizCategoryFilter.set('All');
       }
     });
   }
@@ -137,12 +176,38 @@ export class CourseStudioEditorPageComponent {
     return this.selectedQuestionIds().includes(questionId);
   }
 
-  setBankSearch(value: string): void {
-    this.bankSearch.set(value);
+  setQuestionPreviewSearch(value: string): void {
+    this.questionPreviewSearch.set(value);
+    this.questionPreviewRequestedPage.set(0);
   }
 
-  setCategoryFilter(category: number | 'All'): void {
-    this.activeCategoryFilter.set(category);
+  setQuestionPreviewCategoryFilter(category: number | 'All'): void {
+    this.questionPreviewCategoryFilter.set(category);
+    this.questionPreviewRequestedPage.set(0);
+  }
+
+  goToPreviousQuestionPreviewPage(): void {
+    if (!this.canGoToPreviousQuestionPreviewPage()) {
+      return;
+    }
+
+    this.questionPreviewRequestedPage.update((page) => Math.max(page - 1, 0));
+  }
+
+  goToNextQuestionPreviewPage(): void {
+    if (!this.canGoToNextQuestionPreviewPage()) {
+      return;
+    }
+
+    this.questionPreviewRequestedPage.update((page) => page + 1);
+  }
+
+  setQuizBankSearch(value: string): void {
+    this.quizBankSearch.set(value);
+  }
+
+  setQuizCategoryFilter(category: number | 'All'): void {
+    this.quizCategoryFilter.set(category);
   }
 
   setNewManagedCategory(value: string): void {

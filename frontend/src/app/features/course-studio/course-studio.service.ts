@@ -34,6 +34,16 @@ type QuestionApiDto = {
   answers: QuestionAnswerApiDto[];
 };
 
+type QuestionPageApiDto = {
+  items: QuestionApiDto[];
+  pageNumber: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+};
+
 type QuestionVersionApiDto = {
   id: number;
   questionId: number;
@@ -147,6 +157,12 @@ export class CourseStudioService {
 
   private readonly categoriesState = signal<StudioCategory[]>([]);
   private readonly questionsState = signal<Question[]>([]);
+  private readonly questionPreviewItemsState = signal<Question[]>([]);
+  private readonly questionPreviewPageNumberState = signal(0);
+  private readonly questionPreviewPageSizeState = signal(5);
+  private readonly questionPreviewTotalItemsState = signal(0);
+  private readonly questionPreviewTotalPagesState = signal(0);
+  private readonly questionPreviewLoadingState = signal(false);
   private readonly questionVersionsState = signal<Record<number, StudioQuestionVersion[]>>({});
   private readonly versionLoadingState = signal<number | null>(null);
 
@@ -179,6 +195,12 @@ export class CourseStudioService {
 
   readonly categories = this.categoriesState.asReadonly();
   readonly questions = this.questionsState.asReadonly();
+  readonly questionPreviewItems = this.questionPreviewItemsState.asReadonly();
+  readonly questionPreviewPageNumber = this.questionPreviewPageNumberState.asReadonly();
+  readonly questionPreviewPageSize = this.questionPreviewPageSizeState.asReadonly();
+  readonly questionPreviewTotalItems = this.questionPreviewTotalItemsState.asReadonly();
+  readonly questionPreviewTotalPages = this.questionPreviewTotalPagesState.asReadonly();
+  readonly isQuestionPreviewLoading = this.questionPreviewLoadingState.asReadonly();
   readonly availableCategories = computed(() => this.categoriesState());
   readonly categorySummaries = computed(() =>
     this.categoriesState().map((category) => ({
@@ -259,6 +281,10 @@ export class CourseStudioService {
     this.loadingState.set(true);
     this.loadedState.set(false);
     this.loadErrorState.set(null);
+    this.questionPreviewItemsState.set([]);
+    this.questionPreviewPageNumberState.set(0);
+    this.questionPreviewTotalItemsState.set(0);
+    this.questionPreviewTotalPagesState.set(0);
     this.questionVersionsState.set({});
     this.activeAttemptState.set(null);
 
@@ -293,6 +319,46 @@ export class CourseStudioService {
       });
   }
 
+  loadQuestionPreview(
+    courseId: number,
+    page = 0,
+    size = 5,
+    search = '',
+    categoryId: number | null = null
+  ) {
+    this.questionPreviewLoadingState.set(true);
+
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size)
+    });
+
+    if (search.trim()) {
+      params.set('search', search.trim());
+    }
+
+    if (categoryId !== null) {
+      params.set('categoryId', String(categoryId));
+    }
+
+    return this.http.get<QuestionPageApiDto>(`${this.apiBaseUrl}/courses/${courseId}/questions/preview?${params.toString()}`).pipe(
+      map((response) => ({
+        ...response,
+        items: response.items.map((question) => this.mapQuestion(question))
+      })),
+      tap((response) => {
+        this.questionPreviewItemsState.set(response.items);
+        this.questionPreviewPageNumberState.set(response.pageNumber);
+        this.questionPreviewPageSizeState.set(response.pageSize);
+        this.questionPreviewTotalItemsState.set(response.totalItems);
+        this.questionPreviewTotalPagesState.set(response.totalPages);
+      }),
+      finalize(() => {
+        this.questionPreviewLoadingState.set(false);
+      })
+    );
+  }
+
   createCategory(name: string) {
     const courseId = this.requireActiveCourseId();
 
@@ -316,6 +382,14 @@ export class CourseStudioService {
             this.sortCategories(categories.map((category) => (category.id === updatedCategory.id ? updatedCategory : category)))
           );
           this.questionsState.update((questions) =>
+            questions.map((question) => ({
+              ...question,
+              categories: question.categories.map((category) =>
+                category.id === updatedCategory.id ? { id: updatedCategory.id, name: updatedCategory.name } : category
+              )
+            }))
+          );
+          this.questionPreviewItemsState.update((questions) =>
             questions.map((question) => ({
               ...question,
               categories: question.categories.map((category) =>
@@ -347,6 +421,12 @@ export class CourseStudioService {
       tap(() => {
         this.categoriesState.update((categories) => categories.filter((category) => category.id !== categoryId));
         this.questionsState.update((questions) =>
+          questions.map((question) => ({
+            ...question,
+            categories: question.categories.filter((category) => category.id !== categoryId)
+          }))
+        );
+        this.questionPreviewItemsState.update((questions) =>
           questions.map((question) => ({
             ...question,
             categories: question.categories.filter((category) => category.id !== categoryId)

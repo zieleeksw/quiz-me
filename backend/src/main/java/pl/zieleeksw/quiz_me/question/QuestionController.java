@@ -34,6 +34,18 @@ class QuestionController {
         return questionFacade.fetchQuestions(courseId);
     }
 
+    @GetMapping("/preview")
+    @PreAuthorize("isAuthenticated()")
+    QuestionPageDto fetchPreview(
+            @PathVariable final Long courseId,
+            @RequestParam(defaultValue = "0") final int page,
+            @RequestParam(defaultValue = "5") final int size,
+            @RequestParam(required = false) final String search,
+            @RequestParam(required = false) final Long categoryId
+    ) {
+        return questionFacade.fetchQuestionPreview(courseId, page, size, search, categoryId);
+    }
+
     @GetMapping("/{questionId}/versions")
     @PreAuthorize("isAuthenticated()")
     List<QuestionVersionDto> fetchVersions(

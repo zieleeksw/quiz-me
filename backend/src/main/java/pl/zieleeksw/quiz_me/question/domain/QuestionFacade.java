@@ -10,6 +10,7 @@ import pl.zieleeksw.quiz_me.question.QuestionAnswerDto;
 import pl.zieleeksw.quiz_me.question.QuestionAnswerRequest;
 import pl.zieleeksw.quiz_me.question.QuestionCategoryDto;
 import pl.zieleeksw.quiz_me.question.QuestionDto;
+import pl.zieleeksw.quiz_me.question.QuestionPageDto;
 import pl.zieleeksw.quiz_me.question.QuestionVersionDto;
 
 import java.time.Instant;
@@ -102,6 +103,40 @@ public class QuestionFacade {
                 .stream()
                 .map(this::toCurrentQuestionDto)
                 .toList();
+    }
+
+    public QuestionPageDto fetchQuestionPreview(
+            final Long courseId,
+            final int page,
+            final int size,
+            final String search,
+            final Long categoryId
+    ) {
+        final int normalizedPage = Math.max(page, 0);
+        final int normalizedSize = Math.min(Math.max(size, 1), 50);
+        final String normalizedSearch = search == null ? null : search.trim().toLowerCase();
+
+        final List<QuestionDto> filteredQuestions = fetchQuestions(courseId)
+                .stream()
+                .filter(question -> matchesCategory(question, categoryId))
+                .filter(question -> matchesSearch(question, normalizedSearch))
+                .toList();
+        final long totalItems = filteredQuestions.size();
+        final int totalPages = totalItems == 0 ? 0 : (int) Math.ceil((double) totalItems / normalizedSize);
+        final int safePage = totalPages == 0 ? 0 : Math.min(normalizedPage, totalPages - 1);
+        final int fromIndex = safePage * normalizedSize;
+        final int toIndex = Math.min(fromIndex + normalizedSize, filteredQuestions.size());
+        final List<QuestionDto> pageItems = totalItems == 0 ? List.of() : filteredQuestions.subList(fromIndex, toIndex);
+
+        return new QuestionPageDto(
+                pageItems,
+                safePage,
+                normalizedSize,
+                totalItems,
+                totalPages,
+                totalPages > 0 && safePage < totalPages - 1,
+                safePage > 0
+        );
     }
 
     public List<QuestionVersionDto> fetchQuestionVersions(
@@ -293,6 +328,35 @@ public class QuestionFacade {
                         category.name()
                 ))
                 .toList();
+    }
+
+    private boolean matchesCategory(
+            final QuestionDto question,
+            final Long categoryId
+    ) {
+        if (categoryId == null) {
+            return true;
+        }
+
+        return question.categories()
+                .stream()
+                .anyMatch(category -> category.id().equals(categoryId));
+    }
+
+    private boolean matchesSearch(
+            final QuestionDto question,
+            final String normalizedSearch
+    ) {
+        if (normalizedSearch == null || normalizedSearch.isBlank()) {
+            return true;
+        }
+
+        final boolean promptMatches = question.prompt().toLowerCase().contains(normalizedSearch);
+        final boolean categoryMatches = question.categories()
+                .stream()
+                .anyMatch(category -> category.name().toLowerCase().contains(normalizedSearch));
+
+        return promptMatches || categoryMatches;
     }
 
     private List<QuestionAnswerDto> findAnswerDtos(

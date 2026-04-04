@@ -407,6 +407,42 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.studio-list--preview {
+  position: relative;
+  min-height: 24rem;
+}
+
+.studio-list--loading {
+  pointer-events: none;
+}
+
+.studio-list--loading .studio-item {
+  opacity: 0.58;
+}
+
+.studio-list-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: linear-gradient(180deg, rgba(255, 252, 247, 0.22), rgba(255, 252, 247, 0.68));
+  border-radius: inherit;
+}
+
+.studio-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.studio-pagination .studio-inline-button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .studio-empty--compact {
   padding: 1rem;
 }
@@ -434,6 +470,7 @@
   .studio-selection-box__header,
   .studio-bank-summary,
   .studio-list-header,
+  .studio-pagination,
   .studio-category-item__head,
   .studio-category-item__actions,
   .studio-item__actions {

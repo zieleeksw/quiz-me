@@ -50,6 +50,17 @@ class ShouldFetchQuestionsIntegrationTest extends BaseIntegration {
     }
 
     @Test
+    void shouldReturnUnauthorizedWhenFetchingQuestionPreviewWithoutToken() throws Exception {
+        final ResultActions result = mockMvc.perform(get("/courses/{courseId}/questions/preview", 999L)
+                .param("page", "0")
+                .param("size", "5")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        itShouldReturnUnauthorizedStatus(result);
+        itShouldHaveEmptyResponseBody(result);
+    }
+
+    @Test
     void shouldFetchCurrentQuestionStateAfterVersionedUpdate() throws Exception {
         final var ownerAuthentication = authenticationApi.registerAndLogin();
         final TestCourseDto course = createCourse(
@@ -149,6 +160,110 @@ class ShouldFetchQuestionsIntegrationTest extends BaseIntegration {
                 .containsExactly("Web", "Controllers");
     }
 
+    @Test
+    void shouldFetchQuestionPreviewPageWithFiveItems() throws Exception {
+        final var ownerAuthentication = authenticationApi.registerAndLogin();
+        final TestCourseDto course = createCourse(
+                ownerAuthentication.accessToken().value(),
+                new TestCreateCourseRequest(
+                        "Spring Boot Associate",
+                        "A focused course for architecture, persistence, and testing drills."
+                )
+        );
+        final TestCategoryDto webCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Web");
+
+        for (int index = 1; index <= 6; index++) {
+            createQuestion(
+                    course.id(),
+                    ownerAuthentication.accessToken().value(),
+                    new TestCreateQuestionRequest(
+                            "Preview question number " + index + " for pagination checks?",
+                            List.of(
+                                    new TestQuestionAnswerRequest("Correct answer " + index, true),
+                                    new TestQuestionAnswerRequest("Wrong answer " + index, false)
+                            ),
+                            List.of(webCategory.id())
+                    )
+            );
+        }
+
+        final ResultActions result = mockMvc.perform(get("/courses/{courseId}/questions/preview", course.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .param("page", "0")
+                .param("size", "5")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        final TestQuestionPageDto response = readPageResponse(result);
+
+        itShouldReturnOkStatus(result);
+        assertThat(response.pageNumber()).isEqualTo(0);
+        assertThat(response.pageSize()).isEqualTo(5);
+        assertThat(response.totalItems()).isEqualTo(6);
+        assertThat(response.totalPages()).isEqualTo(2);
+        assertThat(response.hasNext()).isTrue();
+        assertThat(response.hasPrevious()).isFalse();
+        assertThat(response.items()).hasSize(5);
+        assertThat(response.items().getFirst().prompt()).isEqualTo("Preview question number 6 for pagination checks?");
+        assertThat(response.items().getLast().prompt()).isEqualTo("Preview question number 2 for pagination checks?");
+    }
+
+    @Test
+    void shouldFilterQuestionPreviewBySearchAndCategory() throws Exception {
+        final var ownerAuthentication = authenticationApi.registerAndLogin();
+        final TestCourseDto course = createCourse(
+                ownerAuthentication.accessToken().value(),
+                new TestCreateCourseRequest(
+                        "Spring Boot Associate",
+                        "A focused course for architecture, persistence, and testing drills."
+                )
+        );
+        final TestCategoryDto webCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Web");
+        final TestCategoryDto securityCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Security");
+
+        createQuestion(
+                course.id(),
+                ownerAuthentication.accessToken().value(),
+                new TestCreateQuestionRequest(
+                        "Which bean handles incoming REST requests in the web stack?",
+                        List.of(
+                                new TestQuestionAnswerRequest("DispatcherServlet", true),
+                                new TestQuestionAnswerRequest("EntityManager", false)
+                        ),
+                        List.of(webCategory.id())
+                )
+        );
+        createQuestion(
+                course.id(),
+                ownerAuthentication.accessToken().value(),
+                new TestCreateQuestionRequest(
+                        "Which filter usually inspects the bearer token in a security chain?",
+                        List.of(
+                                new TestQuestionAnswerRequest("JwtAuthenticationFilter", true),
+                                new TestQuestionAnswerRequest("DispatcherServlet", false)
+                        ),
+                        List.of(securityCategory.id())
+                )
+        );
+
+        final ResultActions result = mockMvc.perform(get("/courses/{courseId}/questions/preview", course.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .param("page", "0")
+                .param("size", "5")
+                .param("search", "security")
+                .param("categoryId", String.valueOf(securityCategory.id()))
+                .contentType(MediaType.APPLICATION_JSON));
+
+        final TestQuestionPageDto response = readPageResponse(result);
+
+        itShouldReturnOkStatus(result);
+        assertThat(response.totalItems()).isEqualTo(1);
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().getFirst().categories())
+                .extracting(TestQuestionCategoryDto::name)
+                .containsExactly("Security");
+        assertThat(response.items().getFirst().prompt()).contains("security chain");
+    }
+
     private TestCreateQuestionRequest initialQuestionRequest(final Long categoryId) {
         return new TestCreateQuestionRequest(
                 "Which bean is responsible for handling incoming REST requests?",
@@ -232,6 +347,14 @@ class ShouldFetchQuestionsIntegrationTest extends BaseIntegration {
         final String content = mvcResult.getResponse().getContentAsString();
         return objectMapper.readValue(content, new TypeReference<>() {
         });
+    }
+
+    private TestQuestionPageDto readPageResponse(
+            final ResultActions result
+    ) throws Exception {
+        final MvcResult mvcResult = result.andReturn();
+        final String content = mvcResult.getResponse().getContentAsString();
+        return objectMapper.readValue(content, TestQuestionPageDto.class);
     }
 
     private String bearerToken(final String accessToken) {
