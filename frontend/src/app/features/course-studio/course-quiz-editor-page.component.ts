@@ -2,6 +2,7 @@ import { Component, HostListener, computed, effect, inject, signal } from '@angu
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
+import { PendingChangesConfirmationController } from '../../core/navigation/pending-changes-confirmation.controller';
 import { PendingChangesAware } from '../../core/navigation/pending-changes.guard';
 import { ActionButtonComponent } from '../../shared/ui/action-button/action-button.component';
 import { WorkspaceTopbarComponent } from '../../shared/ui/workspace-topbar/workspace-topbar.component';
@@ -24,15 +25,13 @@ type QuizDraftSnapshot = {
 export class CourseQuizEditorPageComponent implements PendingChangesAware {
   private static readonly DEFAULT_RANDOM_COUNT = 10;
   private static readonly QUESTION_PAGE_SIZE = 5;
-  private static readonly PROMPT_DEDUP_WINDOW_MS = 400;
-  private skipBeforeUnloadUntil = 0;
-  private lastBeforeUnloadAt = 0;
-  private lastDiscardDecision: boolean | null = null;
-  private lastDiscardDecisionAt = 0;
 
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly coursesCatalogService = inject(CoursesCatalogService);
+  private readonly pendingChangesConfirmation = new PendingChangesConfirmationController(
+    'You have unsaved quiz changes. Click Cancel to stay here and save them first, or OK to leave without saving.'
+  );
   readonly studio = inject(CourseStudioService);
 
   readonly courseSlug = this.route.snapshot.paramMap.get('courseSlug') ?? 'spring-boot-associate';
@@ -363,40 +362,18 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
   }
 
   confirmDiscardChanges(): boolean {
-    const now = Date.now();
+    return this.pendingChangesConfirmation.confirmDiscardChanges();
+  }
 
-    if (now - this.lastBeforeUnloadAt < CourseQuizEditorPageComponent.PROMPT_DEDUP_WINDOW_MS) {
-      return false;
-    }
-
-    if (now - this.lastDiscardDecisionAt < CourseQuizEditorPageComponent.PROMPT_DEDUP_WINDOW_MS && this.lastDiscardDecision !== null) {
-      return this.lastDiscardDecision;
-    }
-
-    this.skipBeforeUnloadUntil = Date.now() + 1500;
-    const shouldLeave = window.confirm(
-      'You have unsaved quiz changes. Click Cancel to stay here and save them first, or OK to leave without saving.'
-    );
-
-    this.lastDiscardDecision = shouldLeave;
-    this.lastDiscardDecisionAt = now;
-
-    return shouldLeave;
+  @HostListener('window:pointerdown')
+  @HostListener('window:keydown')
+  resetDiscardDecision(): void {
+    this.pendingChangesConfirmation.clearAttemptDecision();
   }
 
   @HostListener('window:beforeunload', ['$event'])
   handleBeforeUnload(event: BeforeUnloadEvent): void {
-    if (Date.now() < this.skipBeforeUnloadUntil) {
-      return;
-    }
-
-    if (!this.hasPendingChanges()) {
-      return;
-    }
-
-    this.lastBeforeUnloadAt = Date.now();
-    event.preventDefault();
-    event.returnValue = true;
+    this.pendingChangesConfirmation.handleBeforeUnload(event, this.hasPendingChanges());
   }
 
   private insertQuestionIntoBasket(

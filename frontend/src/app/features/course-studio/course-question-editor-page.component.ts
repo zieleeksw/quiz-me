@@ -5,6 +5,7 @@ import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Va
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
+import { PendingChangesConfirmationController } from '../../core/navigation/pending-changes-confirmation.controller';
 import { PendingChangesAware } from '../../core/navigation/pending-changes.guard';
 import { extractApiMessage, extractFieldErrors } from '../../shared/api/api-error.utils';
 import { ActionButtonComponent } from '../../shared/ui/action-button/action-button.component';
@@ -37,15 +38,13 @@ type QuestionDraftSnapshot = {
 export class CourseQuestionEditorPageComponent implements PendingChangesAware {
   private static readonly MIN_ANSWERS = 2;
   private static readonly MAX_ANSWERS = 6;
-  private static readonly PROMPT_DEDUP_WINDOW_MS = 400;
-  private skipBeforeUnloadUntil = 0;
-  private lastBeforeUnloadAt = 0;
-  private lastDiscardDecision: boolean | null = null;
-  private lastDiscardDecisionAt = 0;
 
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly coursesCatalogService = inject(CoursesCatalogService);
+  private readonly pendingChangesConfirmation = new PendingChangesConfirmationController(
+    'You have unsaved question changes. Click Cancel to stay here and save them first, or OK to leave without saving.'
+  );
   readonly studio = inject(CourseStudioService);
 
   readonly courseSlug = this.route.snapshot.paramMap.get('courseSlug') ?? 'spring-boot-associate';
@@ -255,40 +254,18 @@ export class CourseQuestionEditorPageComponent implements PendingChangesAware {
   }
 
   confirmDiscardChanges(): boolean {
-    const now = Date.now();
+    return this.pendingChangesConfirmation.confirmDiscardChanges();
+  }
 
-    if (now - this.lastBeforeUnloadAt < CourseQuestionEditorPageComponent.PROMPT_DEDUP_WINDOW_MS) {
-      return false;
-    }
-
-    if (now - this.lastDiscardDecisionAt < CourseQuestionEditorPageComponent.PROMPT_DEDUP_WINDOW_MS && this.lastDiscardDecision !== null) {
-      return this.lastDiscardDecision;
-    }
-
-    this.skipBeforeUnloadUntil = Date.now() + 1500;
-    const shouldLeave = window.confirm(
-      'You have unsaved question changes. Click Cancel to stay here and save them first, or OK to leave without saving.'
-    );
-
-    this.lastDiscardDecision = shouldLeave;
-    this.lastDiscardDecisionAt = now;
-
-    return shouldLeave;
+  @HostListener('window:pointerdown')
+  @HostListener('window:keydown')
+  resetDiscardDecision(): void {
+    this.pendingChangesConfirmation.clearAttemptDecision();
   }
 
   @HostListener('window:beforeunload', ['$event'])
   handleBeforeUnload(event: BeforeUnloadEvent): void {
-    if (Date.now() < this.skipBeforeUnloadUntil) {
-      return;
-    }
-
-    if (!this.hasPendingChanges()) {
-      return;
-    }
-
-    this.lastBeforeUnloadAt = Date.now();
-    event.preventDefault();
-    event.returnValue = true;
+    this.pendingChangesConfirmation.handleBeforeUnload(event, this.hasPendingChanges());
   }
 
   private loadQuestionHistory(questionId: number, force = false): void {
