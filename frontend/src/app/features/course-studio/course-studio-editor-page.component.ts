@@ -1,7 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
@@ -13,12 +12,11 @@ import { CourseStudioService, StudioQuestion } from './course-studio.service';
 
 @Component({
   selector: 'app-course-studio-editor-page',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink, ActionButtonComponent, WorkspaceTopbarComponent],
+  imports: [DatePipe, RouterLink, ActionButtonComponent, WorkspaceTopbarComponent],
   templateUrl: './course-studio-editor-page.component.html',
   styleUrl: './course-studio-editor-page.component.scss'
 })
 export class CourseStudioEditorPageComponent {
-  private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly coursesCatalogService = inject(CoursesCatalogService);
   readonly studio = inject(CourseStudioService);
@@ -27,25 +25,19 @@ export class CourseStudioEditorPageComponent {
   readonly currentCourse = computed(() => this.coursesCatalogService.findBySlug(this.courseSlug));
   readonly studioLink = ['/courses', this.courseSlug];
   readonly addQuestionLink = ['/courses', this.courseSlug, 'editor', 'questions', 'new'];
-  readonly activeTab = signal<'questions' | 'quizzes' | 'categories'>('questions');
+  readonly addQuizLink = ['/courses', this.courseSlug, 'editor', 'quizzes', 'new'];
+  readonly activeTab = signal<'questions' | 'quizzes' | 'categories'>(
+    this.route.snapshot.url.some((segment) => segment.path === 'quizzes') ? 'quizzes' : 'questions'
+  );
 
-  readonly selectedQuestionIds = signal<number[]>([]);
   readonly questionPreviewSearch = signal('');
   readonly questionPreviewCategoryFilter = signal<number | 'All'>('All');
   readonly questionPreviewRequestedPage = signal(0);
-  readonly quizBankSearch = signal('');
-  readonly quizCategoryFilter = signal<number | 'All'>('All');
   readonly newManagedCategory = signal('');
   readonly categoryMessage = signal('');
   readonly editingCategoryId = signal<number | null>(null);
   readonly editingCategoryDraft = signal('');
   readonly isSavingCategory = signal(false);
-
-  readonly quizForm = this.formBuilder.nonNullable.group({
-    title: ['', [Validators.required, Validators.minLength(4)]],
-    mode: ['manual' as 'manual' | 'random', [Validators.required]],
-    randomCount: [10, [Validators.min(1)]]
-  });
 
   readonly questionPreviewQuestions = computed(() => this.studio.questionPreviewItems());
   readonly questionPreviewPageLabel = computed(() => {
@@ -59,30 +51,29 @@ export class CourseStudioEditorPageComponent {
   readonly canGoToNextQuestionPreviewPage = computed(
     () => this.studio.questionPreviewTotalPages() > 0 && this.studio.questionPreviewPageNumber() < this.studio.questionPreviewTotalPages() - 1
   );
+  readonly quizPreviewCards = computed(() => {
+    const questions = this.studio.questions();
 
-  readonly filteredQuestions = computed(() => {
-    const normalizedSearch = this.quizBankSearch().trim().toLowerCase();
-    const activeCategory = this.quizCategoryFilter();
+    return this.studio.quizzes().map((quiz) => {
+      const manualQuestions =
+        quiz.mode === 'manual'
+          ? quiz.questionIds
+              .map((questionId) => questions.find((question) => question.id === questionId))
+              .filter((question): question is StudioQuestion => Boolean(question))
+          : [];
+      const previewQuestions =
+        quiz.mode === 'manual'
+          ? manualQuestions.slice(0, 3)
+          : questions.slice(0, Math.min(quiz.randomCount ?? 3, 3));
+      const previewCategoryNames = [...new Set(previewQuestions.flatMap((question) => question.categories.map((category) => category.name)))];
 
-    return this.studio.questions().filter((question) => {
-      const matchesCategory =
-        activeCategory === 'All' || question.categories.some((category) => category.id === activeCategory);
-      const matchesSearch =
-        !normalizedSearch ||
-        question.prompt.toLowerCase().includes(normalizedSearch) ||
-        question.categories.some((category) => category.name.toLowerCase().includes(normalizedSearch));
-
-      return matchesCategory && matchesSearch;
+      return {
+        ...quiz,
+        previewQuestions,
+        previewCategoryNames
+      };
     });
   });
-
-  readonly selectedQuestions = computed(() =>
-    this.selectedQuestionIds()
-      .map((questionId) => this.studio.questions().find((question) => question.id === questionId))
-      .filter((question): question is StudioQuestion => Boolean(question))
-  );
-
-  readonly canCreateManualQuiz = computed(() => this.selectedQuestionIds().length > 0);
 
   constructor() {
     this.coursesCatalogService.loadCourses();
@@ -117,14 +108,9 @@ export class CourseStudioEditorPageComponent {
       const categories = this.studio.categories();
       const availableIds = new Set(categories.map((category) => category.id));
       const activeQuestionPreviewFilter = this.questionPreviewCategoryFilter();
-      const activeQuizFilter = this.quizCategoryFilter();
 
       if (activeQuestionPreviewFilter !== 'All' && !availableIds.has(activeQuestionPreviewFilter)) {
         this.questionPreviewCategoryFilter.set('All');
-      }
-
-      if (activeQuizFilter !== 'All' && !availableIds.has(activeQuizFilter)) {
-        this.quizCategoryFilter.set('All');
       }
     });
   }
@@ -137,43 +123,8 @@ export class CourseStudioEditorPageComponent {
     return ['/courses', this.courseSlug, 'editor', 'questions', questionId, 'edit'];
   }
 
-  createQuiz(): void {
-    if (this.quizForm.invalid) {
-      this.quizForm.markAllAsTouched();
-      return;
-    }
-
-    const value = this.quizForm.getRawValue();
-
-    if (value.mode === 'manual' && !this.selectedQuestionIds().length) {
-      return;
-    }
-
-    this.studio.addQuiz({
-      title: value.title,
-      mode: value.mode,
-      questionIds: this.selectedQuestionIds(),
-      randomCount: value.mode === 'random' ? value.randomCount : null
-    });
-
-    this.quizForm.reset({
-      title: '',
-      mode: 'manual',
-      randomCount: value.randomCount
-    });
-    this.selectedQuestionIds.set([]);
-  }
-
-  toggleQuestionSelection(questionId: number): void {
-    this.selectedQuestionIds.update((selectedQuestionIds) =>
-      selectedQuestionIds.includes(questionId)
-        ? selectedQuestionIds.filter((id) => id !== questionId)
-        : [...selectedQuestionIds, questionId]
-    );
-  }
-
-  isQuestionSelected(questionId: number): boolean {
-    return this.selectedQuestionIds().includes(questionId);
+  quizEditLink(quizId: string): unknown[] {
+    return ['/courses', this.courseSlug, 'editor', 'quizzes', quizId, 'edit'];
   }
 
   setQuestionPreviewSearch(value: string): void {
@@ -200,14 +151,6 @@ export class CourseStudioEditorPageComponent {
     }
 
     this.questionPreviewRequestedPage.update((page) => page + 1);
-  }
-
-  setQuizBankSearch(value: string): void {
-    this.quizBankSearch.set(value);
-  }
-
-  setQuizCategoryFilter(category: number | 'All'): void {
-    this.quizCategoryFilter.set(category);
   }
 
   setNewManagedCategory(value: string): void {
@@ -338,14 +281,6 @@ export class CourseStudioEditorPageComponent {
           this.categoryMessage.set(this.resolveCategoryError(error));
         }
       });
-  }
-
-  clearSelectedQuestions(): void {
-    this.selectedQuestionIds.set([]);
-  }
-
-  removeSelectedQuestion(questionId: number): void {
-    this.selectedQuestionIds.update((selectedQuestionIds) => selectedQuestionIds.filter((id) => id !== questionId));
   }
 
   private resolveCategoryError(error: unknown): string {

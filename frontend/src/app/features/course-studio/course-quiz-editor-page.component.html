@@ -1,0 +1,218 @@
+<main class="workspace-shell studio-shell">
+  <app-workspace-topbar />
+
+  <section class="studio-hero">
+    <div>
+      <p class="app-eyebrow">Quiz Composer</p>
+      <h1 class="studio-title">{{ isEditing() ? 'Edit Quiz' : 'Add New Quiz' }}</h1>
+      <p class="studio-copy">
+        {{ isEditing()
+          ? 'Adjust the current quiz setup in its own workspace, then return to the quiz library once the changes are ready.'
+          : 'Build learner-facing quiz variants in their own workspace, then return to the quiz library once the next manual or random drill is ready.' }}
+      </p>
+    </div>
+
+    <div class="studio-hero__actions">
+      <app-action-button label="Back to Quiz Library" [routerLink]="quizListLink" tone="secondary" />
+    </div>
+  </section>
+
+  @if (studio.loadError()) {
+    <section class="studio-status studio-status--error">
+      <p>{{ studio.loadError() }}</p>
+    </section>
+  }
+
+  @if (studio.isLoading() && !studio.isLoaded()) {
+    <section class="studio-status">
+      <p>Loading course data...</p>
+    </section>
+  }
+
+  <section class="studio-editor-layout">
+    <article class="studio-card studio-card--bank">
+      <div class="studio-card__header">
+        <p class="app-eyebrow">Question Picker</p>
+        <div class="studio-card__headline">
+          <h2>Select Questions For A Manual Quiz</h2>
+          <p class="studio-card__hint">
+            Keep the question bank visible here while the composer stays pinned on the right, so bigger courses still feel manageable.
+          </p>
+        </div>
+      </div>
+
+      <div class="studio-bank-toolbar">
+        <div class="app-field">
+          <label for="quiz-bank-search">Search questions</label>
+          <input
+            id="quiz-bank-search"
+            class="app-input"
+            [value]="quizBankSearch()"
+            placeholder="Search by wording or category"
+            (input)="setQuizBankSearch(($any($event.target).value))"
+          />
+        </div>
+      </div>
+
+      <div class="studio-chip-row">
+        <button
+          class="studio-chip"
+          type="button"
+          [class.studio-chip--active]="quizCategoryFilter() === 'All'"
+          (click)="setQuizCategoryFilter('All')"
+        >
+          All categories
+        </button>
+
+        @for (category of studio.categories(); track category.id) {
+          <button
+            class="studio-chip"
+            type="button"
+            [class.studio-chip--active]="quizCategoryFilter() === category.id"
+            (click)="setQuizCategoryFilter(category.id)"
+          >
+            {{ category.name }}
+          </button>
+        }
+      </div>
+
+      <div class="studio-list">
+        @for (question of filteredQuestions(); track question.id) {
+          <article class="studio-item studio-item--compact">
+            <div class="studio-item__top">
+              <div class="studio-item__content">
+                <h3>{{ question.prompt }}</h3>
+                <div class="studio-inline-badges studio-question-categories">
+                  @for (category of question.categories; track category.id) {
+                    <span class="studio-badge">{{ category.name }}</span>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <div class="studio-question-preview">
+              @for (option of question.options; track option.id) {
+                <div class="studio-question-preview__option" [class.studio-question-preview__option--correct]="option.correct">
+                  <span class="studio-question-preview__index">{{ option.displayOrder + 1 }}</span>
+                  <strong>{{ option.content }}</strong>
+                </div>
+              }
+            </div>
+
+            <div class="studio-item__footer">
+              <div class="studio-meta-group">
+                <span class="studio-meta">
+                  Used in {{ studio.questionUsageCount(question.id) }} manual quiz{{ studio.questionUsageCount(question.id) === 1 ? '' : 'zes' }}
+                </span>
+              </div>
+
+              <label class="studio-checkbox">
+                <input
+                  type="checkbox"
+                  [checked]="isQuestionSelected(question.id)"
+                  (change)="toggleQuestionSelection(question.id)"
+                />
+                <span>Select for quiz</span>
+              </label>
+            </div>
+          </article>
+        } @empty {
+          <div class="studio-empty">
+            <h3>No questions match this filter.</h3>
+            <p>Try another category or clear the search phrase before building the next quiz.</p>
+          </div>
+        }
+      </div>
+    </article>
+
+    <aside class="studio-builder-rail">
+      <article class="studio-card">
+        <div class="studio-card__header">
+          <p class="app-eyebrow">Quiz Composer</p>
+          <div class="studio-card__headline">
+            <h2>{{ isEditing() ? 'Update This Quiz Variant' : 'Build The Next Quiz Variant' }}</h2>
+            <p class="studio-card__hint">Manual quizzes keep a fixed set of questions, while random drills sample a fresh slice of the course bank every time.</p>
+          </div>
+        </div>
+
+        @if (quizMessage()) {
+          <p class="studio-meta studio-meta--accent">{{ quizMessage() }}</p>
+        }
+
+        <form class="studio-form" [formGroup]="quizForm" (ngSubmit)="createQuiz()">
+          <div class="app-field">
+            <label for="editor-quiz-title">Quiz title</label>
+            <input
+              id="editor-quiz-title"
+              class="app-input"
+              formControlName="title"
+              placeholder="Security Sprint, Final Mock, Warm-Up..."
+            />
+          </div>
+
+          <div class="studio-form__split">
+            <div class="app-field">
+              <label for="editor-quiz-mode">Quiz mode</label>
+              <select id="editor-quiz-mode" class="app-input" formControlName="mode">
+                <option value="manual">Manual selection</option>
+                <option value="random">Random from course</option>
+              </select>
+            </div>
+
+            <div class="app-field">
+              <label for="editor-random-count">Random count</label>
+              <input id="editor-random-count" class="app-input" type="number" min="1" formControlName="randomCount" />
+            </div>
+          </div>
+
+          <div class="studio-selection-box">
+            @if (quizForm.controls.mode.value === 'manual') {
+              <div class="studio-selection-box__header">
+                <strong>{{ selectedQuestionIds().length }} selected</strong>
+                @if (selectedQuestionIds().length) {
+                  <button class="studio-inline-button" type="button" (click)="clearSelectedQuestions()">Clear</button>
+                }
+              </div>
+
+              <div class="studio-selection-list">
+                @for (question of selectedQuestions(); track question.id) {
+                  <div class="studio-selection-item">
+                    <div>
+                      <div class="studio-inline-badges">
+                        @for (category of question.categories; track category.id) {
+                          <span class="studio-badge">{{ category.name }}</span>
+                        }
+                      </div>
+                      <p>{{ question.prompt }}</p>
+                    </div>
+                    <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="removeSelectedQuestion(question.id)">
+                      x
+                    </button>
+                  </div>
+                } @empty {
+                  <p class="studio-meta">Select questions from the bank on the left to build a manual quiz.</p>
+                }
+              </div>
+            } @else {
+              <p class="studio-meta">
+                This quiz will sample {{ quizForm.controls.randomCount.value }} random question{{
+                  quizForm.controls.randomCount.value === 1 ? '' : 's'
+                }} from the course bank every time it runs.
+              </p>
+            }
+          </div>
+
+          <div class="app-actions-row">
+            <app-action-button
+              [label]="isEditing() ? 'Save Quiz Changes' : 'Create Quiz'"
+              [routerLink]="null"
+              [nativeType]="'submit'"
+              [disabled]="quizForm.controls.mode.value === 'manual' && !canCreateManualQuiz()"
+            />
+            <app-action-button label="Back to Quiz Library" [routerLink]="quizListLink" tone="secondary" size="compact" />
+          </div>
+        </form>
+      </article>
+    </aside>
+  </section>
+</main>

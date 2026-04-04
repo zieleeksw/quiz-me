@@ -9,6 +9,7 @@ import { RegisterPageComponent } from './features/auth/register-page.component';
 import { CourseStudioPageComponent } from './features/course-studio/course-studio-page.component';
 import { CourseStudioEditorPageComponent } from './features/course-studio/course-studio-editor-page.component';
 import { CourseQuestionEditorPageComponent } from './features/course-studio/course-question-editor-page.component';
+import { CourseQuizEditorPageComponent } from './features/course-studio/course-quiz-editor-page.component';
 
 export const routes: Routes = [
   {
@@ -42,6 +43,11 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
+    path: 'courses/:courseSlug/editor/quizzes',
+    component: CourseStudioEditorPageComponent,
+    canActivate: [authGuard]
+  },
+  {
     path: 'courses/:courseSlug/editor/questions/new',
     component: CourseQuestionEditorPageComponent,
     canActivate: [authGuard]
@@ -49,6 +55,16 @@ export const routes: Routes = [
   {
     path: 'courses/:courseSlug/editor/questions/:questionId/edit',
     component: CourseQuestionEditorPageComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'courses/:courseSlug/editor/quizzes/new',
+    component: CourseQuizEditorPageComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'courses/:courseSlug/editor/quizzes/:quizId/edit',
+    component: CourseQuizEditorPageComponent,
     canActivate: [authGuard]
   },
   {

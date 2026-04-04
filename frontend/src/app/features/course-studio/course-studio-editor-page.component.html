@@ -196,217 +196,71 @@
   }
 
   @if (activeTab() === 'quizzes') {
-    <section class="studio-editor-layout">
+    <section class="studio-grid studio-grid--single">
       <article class="studio-card studio-card--bank">
         <div class="studio-card__header">
-          <p class="app-eyebrow">Question Picker</p>
+          <p class="app-eyebrow">Quiz Library</p>
           <div class="studio-card__headline">
-            <h2>Select Questions For Manual Quizzes</h2>
-            <p class="studio-card__hint">Browse the bank here, pick only the questions you need, and keep the builder visible on the right.</p>
+            <h2>Browse And Review Quiz Variants</h2>
+            <p class="studio-card__hint">
+              Keep this page focused on quiz previews. Creating a new quiz now lives on its own dedicated screen, just like question authoring.
+            </p>
           </div>
         </div>
 
-        <div class="studio-bank-toolbar">
-          <div class="app-field">
-            <label for="quiz-bank-search">Search questions</label>
-            <input
-              id="quiz-bank-search"
-              class="app-input"
-              [value]="quizBankSearch()"
-              placeholder="Search by wording or category"
-              (input)="setQuizBankSearch(($any($event.target).value))"
-            />
+        <div class="studio-list-header">
+          <div class="studio-meta-group">
+            <span class="studio-meta">{{ studio.totalQuizzes() }} quiz variant{{ studio.totalQuizzes() === 1 ? '' : 's' }}</span>
           </div>
-        </div>
 
-        <div class="studio-chip-row">
-          <button
-            class="studio-chip"
-            type="button"
-            [class.studio-chip--active]="quizCategoryFilter() === 'All'"
-            (click)="setQuizCategoryFilter('All')"
-          >
-            All categories
-          </button>
-
-          @for (category of studio.categories(); track category.id) {
-            <button
-              class="studio-chip"
-              type="button"
-              [class.studio-chip--active]="quizCategoryFilter() === category.id"
-              (click)="setQuizCategoryFilter(category.id)"
-            >
-              {{ category.name }}
-            </button>
-          }
+          <app-action-button label="Add Quiz" [routerLink]="addQuizLink" size="compact" />
         </div>
 
         <div class="studio-list">
-          @for (question of filteredQuestions(); track question.id) {
-            <article class="studio-item studio-item--compact">
+          @for (quiz of quizPreviewCards(); track quiz.id) {
+            <article class="studio-item studio-item--compact studio-item--quiz-preview">
               <div class="studio-item__top">
                 <div class="studio-item__content">
-                  <h3>{{ question.prompt }}</h3>
-                  <div class="studio-inline-badges studio-question-categories">
-                    @for (category of question.categories; track category.id) {
-                      <span class="studio-badge">{{ category.name }}</span>
+                  <div class="studio-inline-badges">
+                    <span class="studio-badge studio-badge--quiz">{{ quiz.mode === 'manual' ? 'Manual quiz' : 'Random quiz' }}</span>
+                    @for (categoryName of quiz.previewCategoryNames; track categoryName) {
+                      <span class="studio-badge">{{ categoryName }}</span>
                     }
                   </div>
+                  <h3>{{ quiz.title }}</h3>
+                  <p class="studio-meta">
+                    @if (quiz.mode === 'manual') {
+                      <span>{{ quiz.resolvedQuestionCount }} fixed question{{ quiz.resolvedQuestionCount === 1 ? '' : 's' }} currently live in this quiz.</span>
+                    } @else {
+                      <span>Draws {{ quiz.randomCount }} random question{{ quiz.randomCount === 1 ? '' : 's' }} from the current bank every time it runs.</span>
+                    }
+                  </p>
                 </div>
-              </div>
 
-              <div class="studio-question-preview">
-                @for (option of question.options; track option.id) {
-                  <div class="studio-question-preview__option" [class.studio-question-preview__option--correct]="option.correct">
-                    <span class="studio-question-preview__index">{{ option.displayOrder + 1 }}</span>
-                    <strong>{{ option.content }}</strong>
-                  </div>
-                }
+                <app-action-button label="Edit Quiz" [routerLink]="quizEditLink(quiz.id)" tone="secondary" size="compact" />
               </div>
 
               <div class="studio-item__footer">
                 <div class="studio-meta-group">
-                  <span class="studio-meta">
-                    Used in {{ studio.questionUsageCount(question.id) }} manual quiz{{ studio.questionUsageCount(question.id) === 1 ? '' : 'zes' }}
-                  </span>
-                </div>
-
-                <div class="studio-meta-group">
-                  <span class="studio-meta">Created {{ question.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
-                  @if (question.versionNumber > 1) {
-                    <span class="studio-meta">Updated {{ question.updatedAt | date: 'd MMM yyyy, HH:mm' }}</span>
+                  <span class="studio-meta">{{ quiz.resolvedQuestionCount }} question{{ quiz.resolvedQuestionCount === 1 ? '' : 's' }}</span>
+                  @if (quiz.mode === 'random' && quiz.randomCount) {
+                    <span class="studio-meta">Random draw: {{ quiz.randomCount }}</span>
                   }
                 </div>
 
-                <label class="studio-checkbox">
-                  <input
-                    type="checkbox"
-                    [checked]="isQuestionSelected(question.id)"
-                    (change)="toggleQuestionSelection(question.id)"
-                  />
-                  <span>Select for quiz</span>
-                </label>
+                <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="studio.deleteQuiz(quiz.id)">
+                  Delete
+                </button>
               </div>
             </article>
           } @empty {
             <div class="studio-empty">
-              <h3>No questions match this filter.</h3>
-              <p>Try another category or clear the search phrase before building the next quiz.</p>
+              <h3>No quizzes yet.</h3>
+              <p>Create the first quiz variant to start shaping the learner-facing practice set for this course.</p>
             </div>
           }
         </div>
       </article>
-
-      <aside class="studio-builder-rail">
-        <article class="studio-card">
-          <div class="studio-card__header">
-            <p class="app-eyebrow">Quiz Composer</p>
-            <div class="studio-card__headline">
-              <h2>Build Quiz Without Scrolling</h2>
-              <p class="studio-card__hint">The question selection always stays visible here, so large course banks still feel manageable.</p>
-            </div>
-          </div>
-
-          <form class="studio-form" [formGroup]="quizForm" (ngSubmit)="createQuiz()">
-            <div class="app-field">
-              <label for="editor-quiz-title">Quiz title</label>
-              <input
-                id="editor-quiz-title"
-                class="app-input"
-                formControlName="title"
-                placeholder="Security Sprint, Final Mock, Warm-Up..."
-              />
-            </div>
-
-            <div class="studio-form__split">
-              <div class="app-field">
-                <label for="editor-quiz-mode">Quiz mode</label>
-                <select id="editor-quiz-mode" class="app-input" formControlName="mode">
-                  <option value="manual">Manual selection</option>
-                  <option value="random">Random from course</option>
-                </select>
-              </div>
-
-              <div class="app-field">
-                <label for="editor-random-count">Random count</label>
-                <input id="editor-random-count" class="app-input" type="number" min="1" formControlName="randomCount" />
-              </div>
-            </div>
-
-            <div class="studio-selection-box">
-              @if (quizForm.controls.mode.value === 'manual') {
-                <div class="studio-selection-box__header">
-                  <strong>{{ selectedQuestionIds().length }} selected</strong>
-                  @if (selectedQuestionIds().length) {
-                    <button class="studio-inline-button" type="button" (click)="clearSelectedQuestions()">Clear</button>
-                  }
-                </div>
-
-                <div class="studio-selection-list">
-                  @for (question of selectedQuestions(); track question.id) {
-                    <div class="studio-selection-item">
-                      <div>
-                        <div class="studio-inline-badges">
-                          @for (category of question.categories; track category.id) {
-                            <span class="studio-badge">{{ category.name }}</span>
-                          }
-                        </div>
-                        <p>{{ question.prompt }}</p>
-                      </div>
-                      <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="removeSelectedQuestion(question.id)">
-                        x
-                      </button>
-                    </div>
-                  } @empty {
-                    <p class="studio-meta">Select questions from the bank on the left to build a manual quiz.</p>
-                  }
-                </div>
-              } @else {
-                <p class="studio-meta">
-                  This quiz will sample {{ quizForm.controls.randomCount.value }} random question{{
-                    quizForm.controls.randomCount.value === 1 ? '' : 's'
-                  }} from the course bank every time it runs.
-                </p>
-              }
-            </div>
-
-            <div class="app-actions-row">
-              <app-action-button
-                label="Create Quiz"
-                [routerLink]="null"
-                [nativeType]="'submit'"
-                [disabled]="quizForm.controls.mode.value === 'manual' && !canCreateManualQuiz()"
-              />
-            </div>
-          </form>
-
-          <div class="studio-list">
-            @for (quiz of studio.quizzes(); track quiz.id) {
-              <article class="studio-item studio-item--quiz">
-                <div class="studio-item__top">
-                  <div>
-                    <span class="studio-badge studio-badge--quiz">{{ quiz.mode === 'manual' ? 'Manual quiz' : 'Random quiz' }}</span>
-                    <h3>{{ quiz.title }}</h3>
-                  </div>
-
-                  <button class="studio-inline-button studio-inline-button--danger" type="button" (click)="studio.deleteQuiz(quiz.id)">
-                    Delete
-                  </button>
-                </div>
-
-                <p class="studio-meta">
-                  {{ quiz.resolvedQuestionCount }} question{{ quiz.resolvedQuestionCount === 1 ? '' : 's' }}
-                  @if (quiz.mode === 'random') {
-                    <span> sampled from the bank each time.</span>
-                  } @else {
-                    <span> currently fixed in this quiz.</span>
-                  }
-                </p>
-              </article>
-            }
-          </div>
-        </article>
-      </aside>
     </section>
   }
 

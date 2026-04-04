@@ -120,6 +120,10 @@ type QuizDefinition = {
   randomCount: number | null;
 };
 
+export type StudioQuiz = QuizDefinition & {
+  resolvedQuestionCount: number;
+};
+
 type AttemptSummary = {
   id: string;
   quizTitle: string;
@@ -212,7 +216,7 @@ export class CourseStudioService {
     }))
   );
 
-  readonly quizzes = computed(() =>
+  readonly quizzes = computed<StudioQuiz[]>(() =>
     this.quizzesState().map((quiz) => ({
       ...quiz,
       resolvedQuestionCount: this.resolveQuestionIdsForQuiz(quiz).length
@@ -510,6 +514,29 @@ export class CourseStudioService {
     };
 
     this.quizzesState.update((quizzes) => [quiz, ...quizzes]);
+  }
+
+  updateQuiz(
+    quizId: string,
+    payload: { title: string; mode: 'manual' | 'random'; questionIds: number[]; randomCount: number | null }
+  ): void {
+    this.quizzesState.update((quizzes) =>
+      quizzes.map((quiz) =>
+        quiz.id === quizId
+          ? {
+              ...quiz,
+              title: payload.title,
+              mode: payload.mode,
+              questionIds: payload.mode === 'manual' ? payload.questionIds : [],
+              randomCount: payload.mode === 'random' ? payload.randomCount : null
+            }
+          : quiz
+      )
+    );
+  }
+
+  findQuizById(quizId: string): StudioQuiz | null {
+    return this.quizzes().find((quiz) => quiz.id === quizId) ?? null;
   }
 
   deleteQuiz(quizId: string): void {
