@@ -130,6 +130,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
+  gap: 1rem;
   min-height: 0;
 }
 
@@ -139,6 +140,10 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+
+.studio-card--quiz-composer .studio-form__split--quiz-settings {
+  gap: 1.25rem;
 }
 
 .studio-card--quiz-composer .studio-selection-list--basket {
