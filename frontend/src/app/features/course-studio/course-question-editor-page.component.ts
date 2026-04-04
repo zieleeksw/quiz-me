@@ -1,9 +1,10 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { finalize, startWith } from 'rxjs';
 
 import { PendingChangesConfirmationController } from '../../core/navigation/pending-changes-confirmation.controller';
 import { PendingChangesAware } from '../../core/navigation/pending-changes.guard';
@@ -71,6 +72,7 @@ export class CourseQuestionEditorPageComponent implements PendingChangesAware {
       this.createAnswerGroup()
     ])
   });
+  readonly questionFormValue = signal(this.questionForm.getRawValue());
 
   readonly editedQuestion = computed(() => {
     const questionId = this.questionId();
@@ -113,6 +115,21 @@ export class CourseQuestionEditorPageComponent implements PendingChangesAware {
 
   constructor() {
     this.coursesCatalogService.loadCourses();
+
+    this.questionForm.valueChanges
+      .pipe(
+        startWith(this.questionForm.getRawValue()),
+        takeUntilDestroyed()
+      )
+      .subscribe((value) => {
+        this.questionFormValue.set({
+          prompt: value.prompt ?? '',
+          answers: (value.answers ?? []).map((answer) => ({
+            content: answer?.content ?? '',
+            correct: Boolean(answer?.correct)
+          }))
+        });
+      });
 
     effect(() => {
       const course = this.currentCourse();
@@ -370,7 +387,7 @@ export class CourseQuestionEditorPageComponent implements PendingChangesAware {
   }
 
   private captureQuestionDraft(): QuestionDraftSnapshot {
-    const value = this.questionForm.getRawValue();
+    const value = this.questionFormValue();
 
     return {
       prompt: value.prompt.trim(),

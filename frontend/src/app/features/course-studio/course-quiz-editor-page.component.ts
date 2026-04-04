@@ -1,8 +1,9 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { finalize, startWith } from 'rxjs';
 
 import { PendingChangesConfirmationController } from '../../core/navigation/pending-changes-confirmation.controller';
 import { PendingChangesAware } from '../../core/navigation/pending-changes.guard';
@@ -89,6 +90,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
     questionOrder: ['fixed' as 'fixed' | 'random', [Validators.required]],
     answerOrder: ['fixed' as 'fixed' | 'random', [Validators.required]]
   });
+  readonly quizFormValue = signal(this.quizForm.getRawValue());
 
   readonly filteredQuestions = computed(() => {
     const normalizedSearch = this.quizBankSearch().trim().toLowerCase();
@@ -132,7 +134,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
   );
 
   readonly canCreateManualQuiz = computed(() => this.selectedQuestionIds().length > 0);
-  readonly isManualMode = computed(() => this.quizForm.controls.mode.value === 'manual');
+  readonly isManualMode = computed(() => this.quizFormValue().mode === 'manual');
   readonly isSaveDisabled = computed(
     () => this.isSavingQuiz() || (this.isManualMode() && !this.canCreateManualQuiz()) || (this.isEditing() && !this.hasQuizChanges())
   );
@@ -154,6 +156,21 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
 
   constructor() {
     this.coursesCatalogService.loadCourses();
+
+    this.quizForm.valueChanges
+      .pipe(
+        startWith(this.quizForm.getRawValue()),
+        takeUntilDestroyed()
+      )
+      .subscribe((value) => {
+        this.quizFormValue.set({
+          title: value.title ?? '',
+          mode: (value.mode ?? 'manual') as 'manual' | 'random',
+          randomCount: value.randomCount ?? CourseQuizEditorPageComponent.DEFAULT_RANDOM_COUNT,
+          questionOrder: (value.questionOrder ?? 'fixed') as 'fixed' | 'random',
+          answerOrder: (value.answerOrder ?? 'fixed') as 'fixed' | 'random'
+        });
+      });
 
     effect(() => {
       const course = this.currentCourse();
@@ -179,7 +196,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
     });
 
     effect(() => {
-      if (this.quizForm.controls.mode.value === 'manual' && this.selectedRandomCategoryIds().length) {
+      if (this.quizFormValue().mode === 'manual' && this.selectedRandomCategoryIds().length) {
         this.selectedRandomCategoryIds.set([]);
       }
     });
@@ -501,7 +518,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
   }
 
   private captureQuizDraft(): QuizDraftSnapshot {
-    const value = this.quizForm.getRawValue();
+    const value = this.quizFormValue();
 
     return {
       title: value.title.trim(),
