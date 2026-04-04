@@ -15,7 +15,7 @@ import { CourseStudioService, StudioQuestion } from './course-studio.service';
 
 type QuizDraftSnapshot = {
   title: string;
-  mode: 'manual' | 'random';
+  mode: 'manual' | 'random' | 'category';
   randomCount: number | null;
   questionOrder: 'fixed' | 'random';
   answerOrder: 'fixed' | 'random';
@@ -62,7 +62,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
   });
 
   readonly selectedQuestionIds = signal<number[]>([]);
-  readonly selectedRandomCategoryIds = signal<number[]>([]);
+  readonly selectedCategoryIds = signal<number[]>([]);
   readonly quizBankSearch = signal('');
   readonly quizCategoryFilter = signal<number | 'All'>('All');
   readonly quizPreviewRequestedPage = signal(0);
@@ -85,7 +85,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
 
   readonly quizForm = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required, Validators.minLength(4)]],
-    mode: ['manual' as 'manual' | 'random', [Validators.required]],
+    mode: ['manual' as 'manual' | 'random' | 'category', [Validators.required]],
     randomCount: [CourseQuizEditorPageComponent.DEFAULT_RANDOM_COUNT, [Validators.required, Validators.min(1)]],
     questionOrder: ['fixed' as 'fixed' | 'random', [Validators.required]],
     answerOrder: ['fixed' as 'fixed' | 'random', [Validators.required]]
@@ -134,9 +134,16 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
   );
 
   readonly canCreateManualQuiz = computed(() => this.selectedQuestionIds().length > 0);
+  readonly canCreateCategoryQuiz = computed(() => this.selectedCategoryIds().length > 0);
   readonly isManualMode = computed(() => this.quizFormValue().mode === 'manual');
+  readonly isRandomMode = computed(() => this.quizFormValue().mode === 'random');
+  readonly isCategoryMode = computed(() => this.quizFormValue().mode === 'category');
   readonly isSaveDisabled = computed(
-    () => this.isSavingQuiz() || (this.isManualMode() && !this.canCreateManualQuiz()) || (this.isEditing() && !this.hasQuizChanges())
+    () =>
+      this.isSavingQuiz() ||
+      (this.isManualMode() && !this.canCreateManualQuiz()) ||
+      (this.isCategoryMode() && !this.canCreateCategoryQuiz()) ||
+      (this.isEditing() && !this.hasQuizChanges())
   );
   readonly hasQuizChanges = computed(() => {
     const draft = this.captureQuizDraft();
@@ -165,7 +172,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
       .subscribe((value) => {
         this.quizFormValue.set({
           title: value.title ?? '',
-          mode: (value.mode ?? 'manual') as 'manual' | 'random',
+          mode: (value.mode ?? 'manual') as 'manual' | 'random' | 'category',
           randomCount: value.randomCount ?? CourseQuizEditorPageComponent.DEFAULT_RANDOM_COUNT,
           questionOrder: (value.questionOrder ?? 'fixed') as 'fixed' | 'random',
           answerOrder: (value.answerOrder ?? 'fixed') as 'fixed' | 'random'
@@ -184,20 +191,20 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
       const categories = this.studio.categories();
       const availableIds = new Set(categories.map((category) => category.id));
       const activeQuizFilter = this.quizCategoryFilter();
-      const validSelectedIds = this.selectedRandomCategoryIds().filter((categoryId) => availableIds.has(categoryId));
+      const validSelectedIds = this.selectedCategoryIds().filter((categoryId) => availableIds.has(categoryId));
 
       if (activeQuizFilter !== 'All' && !availableIds.has(activeQuizFilter)) {
         this.quizCategoryFilter.set('All');
       }
 
-      if (validSelectedIds.length !== this.selectedRandomCategoryIds().length) {
-        this.selectedRandomCategoryIds.set(validSelectedIds);
+      if (validSelectedIds.length !== this.selectedCategoryIds().length) {
+        this.selectedCategoryIds.set(validSelectedIds);
       }
     });
 
     effect(() => {
-      if (this.quizFormValue().mode === 'manual' && this.selectedRandomCategoryIds().length) {
-        this.selectedRandomCategoryIds.set([]);
+      if (this.quizFormValue().mode !== 'category' && this.selectedCategoryIds().length) {
+        this.selectedCategoryIds.set([]);
       }
     });
 
@@ -217,7 +224,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
         answerOrder: quiz.answerOrder
       });
       this.selectedQuestionIds.set([...quiz.questionIds]);
-      this.selectedRandomCategoryIds.set(quiz.categories.map((category) => category.id));
+      this.selectedCategoryIds.set(quiz.categories.map((category) => category.id));
       this.formInitializedForQuizId.set(quizId);
     });
 
@@ -246,9 +253,9 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
     this.quizPreviewRequestedPage.set(0);
   }
 
-  toggleRandomCategory(categoryId: number): void {
+  toggleCategory(categoryId: number): void {
     this.quizMessage.set('');
-    this.selectedRandomCategoryIds.update((categoryIds) =>
+    this.selectedCategoryIds.update((categoryIds) =>
       categoryIds.includes(categoryId) ? categoryIds.filter((id) => id !== categoryId) : [...categoryIds, categoryId]
     );
   }
@@ -386,6 +393,11 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
       return;
     }
 
+    if (value.mode === 'category' && !this.selectedCategoryIds().length) {
+      this.quizMessage.set('Select at least one category for a category quiz.');
+      return;
+    }
+
     if (this.isEditing() && !this.hasQuizChanges()) {
       this.quizMessage.set('Make at least one change before saving.');
       return;
@@ -398,7 +410,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
       randomCount: value.mode === 'random' ? value.randomCount : null,
       questionOrder: value.questionOrder,
       answerOrder: value.answerOrder,
-      categoryIds: value.mode === 'random' ? this.selectedRandomCategoryIds() : []
+      categoryIds: value.mode === 'category' ? this.selectedCategoryIds() : []
     };
 
     this.isSavingQuiz.set(true);
@@ -429,7 +441,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
             answerOrder: 'fixed'
           });
           this.selectedQuestionIds.set([]);
-          this.selectedRandomCategoryIds.set([]);
+          this.selectedCategoryIds.set([]);
           this.newQuizBaseline.set(this.captureQuizDraft());
           this.quizMessage.set('Quiz added to the course.');
         },
@@ -527,7 +539,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
       questionOrder: value.questionOrder,
       answerOrder: value.answerOrder,
       questionIds: value.mode === 'manual' ? [...this.selectedQuestionIds()] : [],
-      categoryIds: value.mode === 'random' ? [...this.selectedRandomCategoryIds()].sort((left, right) => left - right) : []
+      categoryIds: value.mode === 'category' ? [...this.selectedCategoryIds()].sort((left, right) => left - right) : []
     };
   }
 
@@ -544,8 +556,8 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
       randomCount: quiz.mode === 'random' ? quiz.randomCount ?? Math.max(quiz.resolvedQuestionCount, 1) : null,
       questionOrder: quiz.questionOrder,
       answerOrder: quiz.answerOrder,
-      questionIds: [...quiz.questionIds],
-      categoryIds: quiz.categories.map((category) => category.id).slice().sort((left, right) => left - right)
+      questionIds: quiz.mode === 'manual' ? [...quiz.questionIds] : [],
+      categoryIds: quiz.mode === 'category' ? quiz.categories.map((category) => category.id).slice().sort((left, right) => left - right) : []
     };
   }
 

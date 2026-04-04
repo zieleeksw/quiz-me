@@ -79,7 +79,7 @@ type QuizApiDto = {
   createdAt: string;
   updatedAt: string;
   title: string;
-  mode: 'manual' | 'random';
+  mode: 'manual' | 'random' | 'category';
   randomCount: number | null;
   questionOrder: 'fixed' | 'random';
   answerOrder: 'fixed' | 'random';
@@ -89,7 +89,7 @@ type QuizApiDto = {
 
 type SaveQuizPayload = {
   title: string;
-  mode: 'manual' | 'random';
+  mode: 'manual' | 'random' | 'category';
   randomCount: number | null;
   questionOrder: 'fixed' | 'random';
   answerOrder: 'fixed' | 'random';
@@ -149,7 +149,7 @@ type QuizDefinition = {
   createdAt: string;
   updatedAt: string;
   title: string;
-  mode: 'manual' | 'random';
+  mode: 'manual' | 'random' | 'category';
   questionIds: number[];
   randomCount: number | null;
   questionOrder: 'fixed' | 'random';
@@ -189,7 +189,7 @@ export class CourseStudioService {
 
   private readonly courseTitleState = signal('Spring Boot Associate Mastery Path');
   private readonly courseSubtitleState = signal(
-    'One course can hold the full question bank, multiple targeted quizzes, and a random practice mode with shared aggregated stats.'
+    'One course can hold the full question bank, manual quizzes, random draws, and category-based variants with shared aggregated stats.'
   );
   private readonly activeCourseIdState = signal<number | null>(null);
   private readonly loadingState = signal(false);
@@ -808,16 +808,22 @@ export class CourseStudioService {
       return quiz.questionOrder === 'random' ? this.pickRandomQuestionIds(manualQuestionIds, manualQuestionIds.length) : manualQuestionIds;
     }
 
-    const filteredQuestionIds = this.questionsState()
-      .filter((question) =>
-        !quiz.categories.length || question.categories.some((category) => quiz.categories.some((quizCategory) => quizCategory.id === category.id))
-      )
+    if (quiz.mode === 'random') {
+      const courseQuestionIds = this.questionsState().map((question) => question.id);
+      const selectedQuestionIds = this.pickRandomQuestionIds(courseQuestionIds, quiz.randomCount ?? courseQuestionIds.length);
+
+      return quiz.questionOrder === 'random'
+        ? this.pickRandomQuestionIds(selectedQuestionIds, selectedQuestionIds.length)
+        : courseQuestionIds.filter((questionId) => selectedQuestionIds.includes(questionId));
+    }
+
+    const categoryQuestionIds = this.questionsState()
+      .filter((question) => question.categories.some((category) => quiz.categories.some((quizCategory) => quizCategory.id === category.id)))
       .map((question) => question.id);
-    const selectedQuestionIds = this.pickRandomQuestionIds(filteredQuestionIds, quiz.randomCount ?? filteredQuestionIds.length);
 
     return quiz.questionOrder === 'random'
-      ? this.pickRandomQuestionIds(selectedQuestionIds, selectedQuestionIds.length)
-      : filteredQuestionIds.filter((questionId) => selectedQuestionIds.includes(questionId));
+      ? this.pickRandomQuestionIds(categoryQuestionIds, categoryQuestionIds.length)
+      : categoryQuestionIds;
   }
 
   private pickRandomQuestionIds(questionIds: number[], count: number): number[] {

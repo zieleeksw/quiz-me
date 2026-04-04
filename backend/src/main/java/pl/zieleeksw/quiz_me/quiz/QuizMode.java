@@ -8,7 +8,8 @@ import java.util.Arrays;
 public enum QuizMode {
 
     MANUAL("manual"),
-    RANDOM("random");
+    RANDOM("random"),
+    CATEGORY("category");
 
     private final String value;
 

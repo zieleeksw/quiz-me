@@ -226,7 +226,9 @@
               <div class="studio-item__top">
                 <div class="studio-item__content">
                   <div class="studio-inline-badges">
-                    <span class="studio-badge studio-badge--quiz">{{ quiz.mode === 'manual' ? 'Manual quiz' : 'Random quiz' }}</span>
+                    <span class="studio-badge studio-badge--quiz">
+                      {{ quiz.mode === 'manual' ? 'Manual quiz' : quiz.mode === 'random' ? 'Random quiz' : 'Category quiz' }}
+                    </span>
                     @for (categoryName of quiz.previewCategoryNames; track categoryName) {
                       <span class="studio-badge">{{ categoryName }}</span>
                     }
@@ -235,8 +237,10 @@
                   <p class="studio-meta">
                     @if (quiz.mode === 'manual') {
                       <span>{{ quiz.resolvedQuestionCount }} fixed question{{ quiz.resolvedQuestionCount === 1 ? '' : 's' }} currently live in this quiz.</span>
-                    } @else {
+                    } @else if (quiz.mode === 'random') {
                       <span>Draws {{ quiz.randomCount }} random question{{ quiz.randomCount === 1 ? '' : 's' }} from the current bank every time it runs.</span>
+                    } @else {
+                      <span>Includes every current question from the selected categories.</span>
                     }
                   </p>
                 </div>
@@ -249,6 +253,9 @@
                   <span class="studio-meta">{{ quiz.resolvedQuestionCount }} question{{ quiz.resolvedQuestionCount === 1 ? '' : 's' }}</span>
                   @if (quiz.mode === 'random' && quiz.randomCount) {
                     <span class="studio-meta">Random draw: {{ quiz.randomCount }}</span>
+                  }
+                  @if (quiz.mode === 'category' && quiz.previewCategoryNames.length) {
+                    <span class="studio-meta">{{ quiz.previewCategoryNames.length }} categor{{ quiz.previewCategoryNames.length === 1 ? 'y' : 'ies' }}</span>
                   }
                   <span class="studio-meta">Question order: {{ quiz.questionOrder === 'random' ? 'random' : 'fixed' }}</span>
                   <span class="studio-meta">Answer order: {{ quiz.answerOrder === 'random' ? 'random' : 'fixed' }}</span>

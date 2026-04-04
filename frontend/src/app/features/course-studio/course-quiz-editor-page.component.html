@@ -8,7 +8,7 @@
       <p class="studio-copy">
         {{ isEditing()
           ? 'Adjust the current quiz setup in its own workspace, then return to the quiz library once the changes are ready.'
-          : 'Build learner-facing quiz variants in their own workspace, then return to the quiz library once the next manual or random drill is ready.' }}
+          : 'Build learner-facing quiz variants in their own workspace, then return to the quiz library once the next manual, random, or category drill is ready.' }}
       </p>
     </div>
 
@@ -34,11 +34,11 @@
       <div class="studio-card__header">
         <p class="app-eyebrow">Question Picker</p>
         <div class="studio-card__headline">
-          <h2>{{ isManualMode() ? 'Select Questions For A Manual Quiz' : 'Browse The Course Bank For Random Rules' }}</h2>
+          <h2>{{ isManualMode() ? 'Select Questions For A Manual Quiz' : 'Browse The Course Bank' }}</h2>
           <p class="studio-card__hint">
             {{ isManualMode()
               ? 'Keep the question bank visible here while the composer stays pinned on the right, so bigger courses still feel manageable.'
-              : 'Random quizzes pull from the whole course bank or from the categories selected on the right, so this panel stays in read-only browse mode.' }}
+              : 'Random quizzes draw from the whole course bank, while category quizzes include every question tagged with the categories you select on the right.' }}
           </p>
         </div>
       </div>
@@ -152,7 +152,7 @@
           <p class="app-eyebrow">Quiz Composer</p>
           <div class="studio-card__headline">
             <h2>{{ isEditing() ? 'Update This Quiz Variant' : 'Build The Next Quiz Variant' }}</h2>
-            <p class="studio-card__hint">Manual quizzes keep a fixed set of questions, while random drills sample a fresh slice of the course bank every time.</p>
+            <p class="studio-card__hint">Manual quizzes keep a fixed basket, random quizzes draw a limited fresh slice, and category quizzes include every question from the selected categories.</p>
           </div>
         </div>
 
@@ -195,6 +195,7 @@
               <select id="editor-quiz-mode" class="app-input" formControlName="mode">
                 <option value="manual">Manual selection</option>
                 <option value="random">Random from course</option>
+                <option value="category">All from categories</option>
               </select>
             </div>
           } @else {
@@ -204,13 +205,16 @@
                 <select id="editor-quiz-mode" class="app-input" formControlName="mode">
                   <option value="manual">Manual selection</option>
                   <option value="random">Random from course</option>
+                  <option value="category">All from categories</option>
                 </select>
               </div>
 
-              <div class="app-field">
-                <label for="editor-random-count">Random count</label>
-                <input id="editor-random-count" class="app-input" type="number" min="1" formControlName="randomCount" />
-              </div>
+              @if (isRandomMode()) {
+                <div class="app-field">
+                  <label for="editor-random-count">Random count</label>
+                  <input id="editor-random-count" class="app-input" type="number" min="1" formControlName="randomCount" />
+                </div>
+              }
             </div>
           }
 
@@ -259,18 +263,29 @@
                   </div>
                 }
               </div>
-            } @else {
+            } @else if (isRandomMode()) {
               <div class="studio-selection-box__header">
-                <strong>Random category filters</strong>
+                <strong>Random question draw</strong>
                 <span class="studio-meta">
-                  {{ selectedRandomCategoryIds().length ? selectedRandomCategoryIds().length + ' selected' : 'All categories' }}
+                  {{ quizForm.controls.randomCount.value }} question{{ quizForm.controls.randomCount.value === 1 ? '' : 's' }}
                 </span>
               </div>
 
               <p class="studio-meta">
                 This quiz will sample {{ quizForm.controls.randomCount.value }} random question{{
                   quizForm.controls.randomCount.value === 1 ? '' : 's'
-                }} from the course bank every time it runs. Leave categories empty to use the whole bank.
+                }} from the whole course bank every time it runs.
+              </p>
+            } @else {
+              <div class="studio-selection-box__header">
+                <strong>Category selection</strong>
+                <span class="studio-meta">
+                  {{ selectedCategoryIds().length ? selectedCategoryIds().length + ' selected' : 'Choose categories' }}
+                </span>
+              </div>
+
+              <p class="studio-meta">
+                This quiz will include every current question tagged with the selected categories. There is no separate limit here.
               </p>
 
               <div class="studio-chip-row">
@@ -278,8 +293,8 @@
                   <button
                     class="studio-chip"
                     type="button"
-                    [class.studio-chip--active]="selectedRandomCategoryIds().includes(category.id)"
-                    (click)="toggleRandomCategory(category.id)"
+                    [class.studio-chip--active]="selectedCategoryIds().includes(category.id)"
+                    (click)="toggleCategory(category.id)"
                   >
                     {{ category.name }}
                   </button>

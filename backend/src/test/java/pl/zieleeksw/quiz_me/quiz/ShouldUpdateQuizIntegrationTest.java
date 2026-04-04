@@ -43,7 +43,7 @@ class ShouldUpdateQuizIntegrationTest extends BaseIntegration {
     private AuthenticationApi authenticationApi;
 
     @Test
-    void shouldCreateNewVersionWhenUpdatingManualQuizToRandomQuiz() throws Exception {
+    void shouldCreateNewVersionWhenUpdatingManualQuizToCategoryQuiz() throws Exception {
         final var ownerAuthentication = authenticationApi.registerAndLogin();
         final TestCourseDto course = createCourse(ownerAuthentication.accessToken().value(), new TestCreateCourseRequest(
                 "Spring Security Associate",
@@ -73,8 +73,8 @@ class ShouldUpdateQuizIntegrationTest extends BaseIntegration {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new TestUpdateQuizRequest(
                         "Security Drill",
-                        "random",
-                        4,
+                        "category",
+                        null,
                         "random",
                         "random",
                         List.of(),
@@ -92,8 +92,8 @@ class ShouldUpdateQuizIntegrationTest extends BaseIntegration {
         itShouldReturnOkStatus(versionsResult);
         assertThat(updatedQuiz.currentVersionNumber()).isEqualTo(2);
         assertThat(updatedQuiz.title()).isEqualTo("Security Drill");
-        assertThat(updatedQuiz.mode()).isEqualTo("random");
-        assertThat(updatedQuiz.randomCount()).isEqualTo(4);
+        assertThat(updatedQuiz.mode()).isEqualTo("category");
+        assertThat(updatedQuiz.randomCount()).isNull();
         assertThat(updatedQuiz.questionOrder()).isEqualTo("random");
         assertThat(updatedQuiz.answerOrder()).isEqualTo("random");
         assertThat(updatedQuiz.questionIds()).isEmpty();
@@ -103,7 +103,7 @@ class ShouldUpdateQuizIntegrationTest extends BaseIntegration {
 
         assertThat(versions).hasSize(2);
         assertThat(versions.getFirst().versionNumber()).isEqualTo(2);
-        assertThat(versions.getFirst().mode()).isEqualTo("random");
+        assertThat(versions.getFirst().mode()).isEqualTo("category");
         assertThat(versions.get(1).versionNumber()).isEqualTo(1);
         assertThat(versions.get(1).mode()).isEqualTo("manual");
         assertThat(versions.get(1).questionIds()).containsExactly(question.id());

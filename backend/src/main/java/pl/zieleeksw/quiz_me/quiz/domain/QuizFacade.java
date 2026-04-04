@@ -208,11 +208,11 @@ public class QuizFacade {
             }
 
             if (!normalizedCategoryIds.isEmpty()) {
-                throw new IllegalArgumentException("Manual quiz cannot define random category filters.");
+                throw new IllegalArgumentException("Manual quiz cannot define category filters.");
             }
 
             assertQuestionsBelongToCourse(courseId, normalizedQuestionIds);
-        } else {
+        } else if (mode == QuizMode.RANDOM) {
             if (randomCount == null || randomCount < 1) {
                 throw new IllegalArgumentException("Random quiz must define a random count greater than 0.");
             }
@@ -222,9 +222,23 @@ public class QuizFacade {
             }
 
             if (!normalizedCategoryIds.isEmpty()) {
-                categoryFacade.findActiveCategoriesByIdsOrThrow(courseId, normalizedCategoryIds);
-                assertRandomCategoriesMatchAtLeastOneQuestion(courseId, normalizedCategoryIds);
+                throw new IllegalArgumentException("Random quiz cannot define category filters.");
             }
+        } else {
+            if (normalizedCategoryIds.isEmpty()) {
+                throw new IllegalArgumentException("Category quiz must define at least 1 category.");
+            }
+
+            if (randomCount != null) {
+                throw new IllegalArgumentException("Category quiz cannot define a random question count.");
+            }
+
+            if (!normalizedQuestionIds.isEmpty()) {
+                throw new IllegalArgumentException("Category quiz cannot contain manually selected questions.");
+            }
+
+            categoryFacade.findActiveCategoriesByIdsOrThrow(courseId, normalizedCategoryIds);
+            assertCategoriesMatchAtLeastOneQuestion(courseId, normalizedCategoryIds);
         }
 
         return new QuizDraft(
@@ -264,7 +278,7 @@ public class QuizFacade {
         }
     }
 
-    private void assertRandomCategoriesMatchAtLeastOneQuestion(
+    private void assertCategoriesMatchAtLeastOneQuestion(
             final Long courseId,
             final List<Long> categoryIds
     ) {
@@ -275,7 +289,7 @@ public class QuizFacade {
                         .anyMatch(category -> categoryIds.contains(category.id())));
 
         if (!matches) {
-            throw new IllegalArgumentException("Selected random categories do not match any current course question.");
+            throw new IllegalArgumentException("Selected categories do not match any current course question.");
         }
     }
 
@@ -326,12 +340,12 @@ public class QuizFacade {
                 .stream()
                 .map(QuizVersionQuestionEntity::getQuestionId)
                 .toList();
-        final List<Long> categoryIds = currentVersion.getMode() == QuizMode.MANUAL
-                ? List.of()
-                : quizVersionCategoryRepository.findAllByQuizVersionIdOrderByDisplayOrderAsc(currentVersion.getId())
+        final List<Long> categoryIds = currentVersion.getMode() == QuizMode.CATEGORY
+                ? quizVersionCategoryRepository.findAllByQuizVersionIdOrderByDisplayOrderAsc(currentVersion.getId())
                         .stream()
                         .map(QuizVersionCategoryEntity::getCategoryId)
-                        .toList();
+                        .toList()
+                : List.of();
 
         return new QuizDto(
                 quiz.getId(),
@@ -360,12 +374,12 @@ public class QuizFacade {
                 .stream()
                 .map(QuizVersionQuestionEntity::getQuestionId)
                 .toList();
-        final List<Long> categoryIds = version.getMode() == QuizMode.MANUAL
-                ? List.of()
-                : quizVersionCategoryRepository.findAllByQuizVersionIdOrderByDisplayOrderAsc(version.getId())
+        final List<Long> categoryIds = version.getMode() == QuizMode.CATEGORY
+                ? quizVersionCategoryRepository.findAllByQuizVersionIdOrderByDisplayOrderAsc(version.getId())
                         .stream()
                         .map(QuizVersionCategoryEntity::getCategoryId)
-                        .toList();
+                        .toList()
+                : List.of();
 
         return new QuizVersionDto(
                 version.getId(),

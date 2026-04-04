@@ -353,7 +353,7 @@ public class QuestionFacade {
 
         final boolean promptMatches = question.prompt().toLowerCase().contains(normalizedSearch);
         final boolean categoryMatches = question.categories()
-                .stream()
+                .stream()   
                 .anyMatch(category -> category.name().toLowerCase().contains(normalizedSearch));
 
         return promptMatches || categoryMatches;

@@ -66,12 +66,12 @@ export class CourseStudioEditorPageComponent {
       const previewQuestions =
         quiz.mode === 'manual'
           ? manualQuestions.slice(0, 3)
-          : questions
-              .filter((question) => !quiz.categories.length || question.categories.some((category) => quiz.categories.some((quizCategory) => quizCategory.id === category.id)))
-              .slice(0, Math.min(quiz.randomCount ?? 3, 3));
-      const previewCategoryNames = quiz.mode === 'manual'
-        ? []
-        : quiz.categories.map((category) => category.name);
+          : quiz.mode === 'random'
+            ? questions.slice(0, Math.min(quiz.randomCount ?? 3, 3))
+            : questions
+                .filter((question) => question.categories.some((category) => quiz.categories.some((quizCategory) => quizCategory.id === category.id)))
+                .slice(0, 3);
+      const previewCategoryNames = quiz.mode === 'category' ? quiz.categories.map((category) => category.name) : [];
 
       return {
         ...quiz,

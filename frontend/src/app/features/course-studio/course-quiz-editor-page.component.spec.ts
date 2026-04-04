@@ -16,7 +16,7 @@ describe('CourseQuizEditorPageComponent', () => {
       createdAt: string;
       updatedAt: string;
       title: string;
-      mode: 'manual' | 'random';
+      mode: 'manual' | 'random' | 'category';
       questionIds: number[];
       randomCount: number | null;
       questionOrder: 'fixed' | 'random';
@@ -150,7 +150,7 @@ describe('CourseQuizEditorPageComponent', () => {
         quizId: number,
         payload: {
           title: string;
-          mode: 'manual' | 'random';
+          mode: 'manual' | 'random' | 'category';
           questionIds: number[];
           randomCount: number | null;
           questionOrder: 'fixed' | 'random';
@@ -169,7 +169,7 @@ describe('CourseQuizEditorPageComponent', () => {
                   randomCount: payload.mode === 'random' ? payload.randomCount : null,
                   questionOrder: payload.questionOrder,
                   answerOrder: payload.answerOrder,
-                  categories: payload.categoryIds.map((categoryId) => ({ id: categoryId, name: 'HTTP' })),
+                  categories: payload.mode === 'category' ? payload.categoryIds.map((categoryId) => ({ id: categoryId, name: 'HTTP' })) : [],
                   resolvedQuestionCount: payload.mode === 'manual' ? payload.questionIds.length : currentQuizzes.length
                 }
               : quiz
