@@ -326,10 +326,12 @@ public class QuizFacade {
                 .stream()
                 .map(QuizVersionQuestionEntity::getQuestionId)
                 .toList();
-        final List<Long> categoryIds = quizVersionCategoryRepository.findAllByQuizVersionIdOrderByDisplayOrderAsc(currentVersion.getId())
-                .stream()
-                .map(QuizVersionCategoryEntity::getCategoryId)
-                .toList();
+        final List<Long> categoryIds = currentVersion.getMode() == QuizMode.MANUAL
+                ? List.of()
+                : quizVersionCategoryRepository.findAllByQuizVersionIdOrderByDisplayOrderAsc(currentVersion.getId())
+                        .stream()
+                        .map(QuizVersionCategoryEntity::getCategoryId)
+                        .toList();
 
         return new QuizDto(
                 quiz.getId(),
@@ -358,10 +360,12 @@ public class QuizFacade {
                 .stream()
                 .map(QuizVersionQuestionEntity::getQuestionId)
                 .toList();
-        final List<Long> categoryIds = quizVersionCategoryRepository.findAllByQuizVersionIdOrderByDisplayOrderAsc(version.getId())
-                .stream()
-                .map(QuizVersionCategoryEntity::getCategoryId)
-                .toList();
+        final List<Long> categoryIds = version.getMode() == QuizMode.MANUAL
+                ? List.of()
+                : quizVersionCategoryRepository.findAllByQuizVersionIdOrderByDisplayOrderAsc(version.getId())
+                        .stream()
+                        .map(QuizVersionCategoryEntity::getCategoryId)
+                        .toList();
 
         return new QuizVersionDto(
                 version.getId(),

@@ -179,6 +179,12 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
     });
 
     effect(() => {
+      if (this.quizForm.controls.mode.value === 'manual' && this.selectedRandomCategoryIds().length) {
+        this.selectedRandomCategoryIds.set([]);
+      }
+    });
+
+    effect(() => {
       const quiz = this.editedQuiz();
       const quizId = this.quizId();
 

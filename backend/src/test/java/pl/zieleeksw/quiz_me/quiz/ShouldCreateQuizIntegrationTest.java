@@ -8,6 +8,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import pl.zieleeksw.quiz_me.BaseIntegration;
+import pl.zieleeksw.quiz_me.TestRuntimeExceptionDto;
 import pl.zieleeksw.quiz_me.auth.AuthenticationApi;
 import pl.zieleeksw.quiz_me.category.TestCategoryDto;
 import pl.zieleeksw.quiz_me.category.TestCreateCategoryRequest;
@@ -131,6 +132,45 @@ class ShouldCreateQuizIntegrationTest extends BaseIntegration {
         assertThat(response.categories())
                 .extracting(TestQuizCategoryDto::name)
                 .containsExactly("Security");
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenManualQuizContainsCategoryFilters() throws Exception {
+        final var ownerAuthentication = authenticationApi.registerAndLogin();
+        final TestCourseDto course = createCourse(ownerAuthentication.accessToken().value(), new TestCreateCourseRequest(
+                "Spring Security Associate",
+                "A focused course for filters, JWTs, authorization rules, and access control."
+        ));
+        final TestCategoryDto securityCategory = createCategory(course.id(), ownerAuthentication.accessToken().value(), "Security");
+        final TestQuestionDto question = createQuestion(course.id(), ownerAuthentication.accessToken().value(), new TestCreateQuestionRequest(
+                "Which filter usually inspects the bearer token in a security chain?",
+                List.of(
+                        new TestQuestionAnswerRequest("JwtAuthenticationFilter", true),
+                        new TestQuestionAnswerRequest("DispatcherServlet", false)
+                ),
+                List.of(securityCategory.id())
+        ));
+
+        final ResultActions result = mockMvc.perform(post("/courses/{courseId}/quizzes", course.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(ownerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new TestCreateQuizRequest(
+                        "Security Foundations",
+                        "manual",
+                        null,
+                        "fixed",
+                        "fixed",
+                        List.of(question.id()),
+                        List.of(securityCategory.id())
+                ))));
+
+        final TestRuntimeExceptionDto response = readResponse(result, TestRuntimeExceptionDto.class);
+
+        itShouldReturnBadRequestStatus(result);
+        assertThat(response).isEqualTo(new TestRuntimeExceptionDto(
+                "IllegalArgumentException",
+                "Manual quiz cannot define random category filters."
+        ));
     }
 
     private TestCreateQuizRequest validManualQuizRequest(final List<Long> questionIds) {

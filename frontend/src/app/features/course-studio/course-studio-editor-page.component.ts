@@ -70,7 +70,7 @@ export class CourseStudioEditorPageComponent {
               .filter((question) => !quiz.categories.length || question.categories.some((category) => quiz.categories.some((quizCategory) => quizCategory.id === category.id)))
               .slice(0, Math.min(quiz.randomCount ?? 3, 3));
       const previewCategoryNames = quiz.mode === 'manual'
-        ? [...new Set(previewQuestions.flatMap((question) => question.categories.map((category) => category.name)))]
+        ? []
         : quiz.categories.map((category) => category.name);
 
       return {
