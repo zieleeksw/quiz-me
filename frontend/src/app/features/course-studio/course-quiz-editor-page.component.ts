@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -11,7 +12,7 @@ import { extractApiMessage, extractFieldErrors } from '../../shared/api/api-erro
 import { ActionButtonComponent } from '../../shared/ui/action-button/action-button.component';
 import { WorkspaceTopbarComponent } from '../../shared/ui/workspace-topbar/workspace-topbar.component';
 import { CoursesCatalogService } from '../dashboard/courses-catalog.service';
-import { CourseStudioService, StudioQuestion } from './course-studio.service';
+import { CourseStudioService, StudioQuestion, StudioQuizVersion } from './course-studio.service';
 
 type QuizDraftSnapshot = {
   title: string;
@@ -25,7 +26,7 @@ type QuizDraftSnapshot = {
 
 @Component({
   selector: 'app-course-quiz-editor-page',
-  imports: [ReactiveFormsModule, RouterLink, ActionButtonComponent, WorkspaceTopbarComponent],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink, ActionButtonComponent, WorkspaceTopbarComponent],
   templateUrl: './course-quiz-editor-page.component.html',
   styleUrl: './course-quiz-editor-page.component.scss'
 })
@@ -67,6 +68,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
   readonly quizCategoryFilter = signal<number | 'All'>('All');
   readonly quizPreviewRequestedPage = signal(0);
   readonly quizMessage = signal('');
+  readonly quizHistoryMessage = signal('');
   readonly isSavingQuiz = signal(false);
   readonly formInitializedForQuizId = signal<number | null>(null);
   readonly draggedQuestionId = signal<number | null>(null);
@@ -132,6 +134,16 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
       .map((questionId) => this.studio.questions().find((question) => question.id === questionId))
       .filter((question): question is StudioQuestion => Boolean(question))
   );
+  readonly quizHistory = computed<StudioQuizVersion[]>(() => {
+    const quizId = this.quizId();
+
+    if (!quizId) {
+      return [];
+    }
+
+    return this.studio.getQuizVersions(quizId);
+  });
+  readonly isLoadingQuizHistory = computed(() => this.studio.versionLoadingQuizId() === this.quizId());
 
   readonly canCreateManualQuiz = computed(() => this.selectedQuestionIds().length > 0);
   readonly canCreateCategoryQuiz = computed(() => this.selectedCategoryIds().length > 0);
@@ -226,6 +238,7 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
       this.selectedQuestionIds.set([...quiz.questionIds]);
       this.selectedCategoryIds.set(quiz.categories.map((category) => category.id));
       this.formInitializedForQuizId.set(quizId);
+      this.loadQuizHistory(quizId);
     });
 
     effect(() => {
@@ -427,9 +440,10 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
         })
       )
       .subscribe({
-        next: () => {
+        next: (quiz) => {
           if (this.isEditing()) {
             this.quizMessage.set('Quiz settings have been saved as a new version.');
+            this.loadQuizHistory(quiz.id, true);
             return;
           }
 
@@ -468,6 +482,26 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
   @HostListener('window:beforeunload', ['$event'])
   handleBeforeUnload(event: BeforeUnloadEvent): void {
     this.pendingChangesConfirmation.handleBeforeUnload(event, this.hasPendingChanges());
+  }
+
+  quizModeLabel(mode: 'manual' | 'random' | 'category'): string {
+    if (mode === 'manual') {
+      return 'Manual quiz';
+    }
+
+    if (mode === 'random') {
+      return 'Random quiz';
+    }
+
+    return 'Category quiz';
+  }
+
+  orderLabel(order: 'fixed' | 'random', subject: 'Questions' | 'Answers'): string {
+    return `${subject}: ${order === 'random' ? 'random' : 'fixed'}`;
+  }
+
+  resolveQuestionPreview(questionId: number): string {
+    return this.studio.questions().find((question) => question.id === questionId)?.prompt ?? `Question #${questionId}`;
   }
 
   private insertQuestionIntoBasket(
@@ -527,6 +561,16 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
     }
 
     return dropTarget.position === 'before' ? targetIndex : targetIndex + 1;
+  }
+
+  private loadQuizHistory(quizId: number, force = false): void {
+    this.quizHistoryMessage.set('');
+
+    this.studio.loadQuizVersions(quizId, force).subscribe({
+      error: (error: unknown) => {
+        this.quizHistoryMessage.set(extractApiMessage(error) ?? 'Unable to load quiz history right now.');
+      }
+    });
   }
 
   private captureQuizDraft(): QuizDraftSnapshot {

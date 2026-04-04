@@ -146,6 +146,8 @@ describe('CourseQuizEditorPageComponent', () => {
     return {
       loadCourseContext: jasmine.createSpy('loadCourseContext'),
       findQuizById: jasmine.createSpy('findQuizById').and.callFake((quizId: number) => quizzes().find((quiz) => quiz.id === quizId) ?? null),
+      loadQuizVersions: jasmine.createSpy('loadQuizVersions').and.returnValue(of([])),
+      getQuizVersions: jasmine.createSpy('getQuizVersions').and.returnValue([]),
       updateQuiz: jasmine.createSpy('updateQuiz').and.callFake((
         quizId: number,
         payload: {
@@ -183,6 +185,7 @@ describe('CourseQuizEditorPageComponent', () => {
       categories: signal([{ id: 1, name: 'HTTP', active: true, createdAt: '', updatedAt: '' }]),
       isLoading: signal(false),
       isLoaded: signal(true),
+      versionLoadingQuizId: signal<number | null>(null),
       loadError: signal<string | null>(null),
       questionPreviewItems: signal([]),
       questionPreviewPageNumber: signal(0),
@@ -249,5 +252,32 @@ describe('CourseQuizEditorPageComponent', () => {
       categoryIds: []
     });
     expect(component.hasQuizChanges()).toBeFalse();
+  });
+
+  it('should load quiz history when opening an existing quiz', () => {
+    const studioMock = createStudioServiceMock();
+    const catalogMock = createCoursesCatalogServiceMock();
+
+    TestBed.configureTestingModule({
+      imports: [CourseQuizEditorPageComponent],
+      providers: [
+        { provide: CourseStudioService, useValue: studioMock },
+        { provide: CoursesCatalogService, useValue: catalogMock },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({ courseSlug: '7-spring', quizId: '1' })
+            }
+          }
+        }
+      ]
+    });
+
+    const fixture = TestBed.createComponent(CourseQuizEditorPageComponent);
+
+    fixture.detectChanges();
+
+    expect(studioMock.loadQuizVersions).toHaveBeenCalledOnceWith(1, false);
   });
 });

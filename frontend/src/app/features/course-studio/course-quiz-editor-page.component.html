@@ -319,4 +319,101 @@
       </article>
     </aside>
   </section>
+
+  @if (isEditing()) {
+    <section class="studio-quiz-history">
+      <article class="studio-card">
+        <div class="studio-card__header">
+          <p class="app-eyebrow">Version History</p>
+          <div class="studio-card__headline">
+            <h2>Inspect Previous Quiz States</h2>
+            <p class="studio-card__hint">
+              Every quiz edit creates a new backend version, so this timeline shows the earlier title, mode, ordering, categories, and question selection.
+            </p>
+          </div>
+        </div>
+
+        @if (quizHistoryMessage()) {
+          <p class="studio-meta studio-meta--accent">{{ quizHistoryMessage() }}</p>
+        }
+
+        @if (isLoadingQuizHistory()) {
+          <div class="studio-empty studio-empty--compact">
+            <h3>Loading versions...</h3>
+            <p>The backend is fetching the full history for this quiz.</p>
+          </div>
+        } @else if (quizHistory().length) {
+          <div class="studio-list studio-list--history">
+            @for (version of quizHistory(); track version.id) {
+              <article class="studio-item studio-item--history">
+                <div class="studio-item__top">
+                  <div>
+                    <span class="studio-badge">Version {{ version.versionNumber }}</span>
+                    <h3>{{ version.title }}</h3>
+                  </div>
+
+                  <span class="studio-meta">{{ version.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
+                </div>
+
+                <div class="studio-inline-badges">
+                  <span class="studio-badge studio-badge--quiz">{{ quizModeLabel(version.mode) }}</span>
+                  <span class="studio-badge">{{ orderLabel(version.questionOrder, 'Questions') }}</span>
+                  <span class="studio-badge">{{ orderLabel(version.answerOrder, 'Answers') }}</span>
+
+                  @if (version.mode === 'random' && version.randomCount) {
+                    <span class="studio-badge">Draw {{ version.randomCount }}</span>
+                  }
+
+                  @if (version.mode === 'manual') {
+                    <span class="studio-badge">{{ version.questionIds.length }} fixed question{{ version.questionIds.length === 1 ? '' : 's' }}</span>
+                  }
+                </div>
+
+                @if (version.categories.length) {
+                  <div class="studio-inline-badges">
+                    @for (category of version.categories; track category.id) {
+                      <span class="studio-badge">{{ category.name }}</span>
+                    }
+                  </div>
+                }
+
+                @if (version.mode === 'manual' && version.questionIds.length) {
+                  <div class="studio-selection-box studio-selection-box--history">
+                    <div class="studio-selection-box__header">
+                      <strong>Manual question list</strong>
+                      <span class="studio-meta">
+                        {{ version.questionIds.length }} question{{ version.questionIds.length === 1 ? '' : 's' }}
+                      </span>
+                    </div>
+
+                    <div class="studio-version-options studio-version-options--quiz-history">
+                    @for (questionId of version.questionIds; track questionId) {
+                      <div class="studio-version-option">
+                        <span>{{ $index + 1 }}.</span>
+                        <strong>{{ resolveQuestionPreview(questionId) }}</strong>
+                      </div>
+                    }
+                    </div>
+                  </div>
+                } @else if (version.mode === 'random') {
+                  <p class="studio-meta">
+                    This version draws {{ version.randomCount ?? 0 }} random question{{ version.randomCount === 1 ? '' : 's' }} from the course bank.
+                  </p>
+                } @else {
+                  <p class="studio-meta">
+                    This version includes every current question assigned to the selected categories.
+                  </p>
+                }
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="studio-empty studio-empty--compact">
+            <h3>No previous versions yet.</h3>
+            <p>The quiz is loaded, but there is no older history to display yet.</p>
+          </div>
+        }
+      </article>
+    </section>
+  }
 </main>

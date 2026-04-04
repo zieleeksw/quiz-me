@@ -9,6 +9,20 @@
   align-self: stretch;
 }
 
+.studio-quiz-history {
+  margin-top: 1rem;
+}
+
+.studio-selection-box--history {
+  gap: 0.7rem;
+}
+
+.studio-version-options--quiz-history {
+  max-height: 18rem;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
 .studio-item[draggable='true'] {
   cursor: grab;
   transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;

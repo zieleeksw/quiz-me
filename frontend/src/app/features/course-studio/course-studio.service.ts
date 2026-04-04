@@ -87,6 +87,20 @@ type QuizApiDto = {
   categories: QuizCategoryApiDto[];
 };
 
+type QuizVersionApiDto = {
+  id: number;
+  quizId: number;
+  versionNumber: number;
+  createdAt: string;
+  title: string;
+  mode: 'manual' | 'random' | 'category';
+  randomCount: number | null;
+  questionOrder: 'fixed' | 'random';
+  answerOrder: 'fixed' | 'random';
+  questionIds: number[];
+  categories: QuizCategoryApiDto[];
+};
+
 type SaveQuizPayload = {
   title: string;
   mode: 'manual' | 'random' | 'category';
@@ -161,6 +175,20 @@ export type StudioQuiz = QuizDefinition & {
   resolvedQuestionCount: number;
 };
 
+export type StudioQuizVersion = {
+  id: number;
+  quizId: number;
+  versionNumber: number;
+  createdAt: string;
+  title: string;
+  mode: 'manual' | 'random' | 'category';
+  questionIds: number[];
+  randomCount: number | null;
+  questionOrder: 'fixed' | 'random';
+  answerOrder: 'fixed' | 'random';
+  categories: StudioQuestionCategory[];
+};
+
 type AttemptSummary = {
   id: string;
   quizTitle: string;
@@ -205,9 +233,11 @@ export class CourseStudioService {
   private readonly questionPreviewTotalPagesState = signal(0);
   private readonly questionPreviewLoadingState = signal(false);
   private readonly questionVersionsState = signal<Record<number, StudioQuestionVersion[]>>({});
-  private readonly versionLoadingState = signal<number | null>(null);
+  private readonly questionVersionLoadingState = signal<number | null>(null);
 
   private readonly quizzesState = signal<QuizDefinition[]>([]);
+  private readonly quizVersionsState = signal<Record<number, StudioQuizVersion[]>>({});
+  private readonly quizVersionLoadingState = signal<number | null>(null);
   private readonly attemptsState = signal<AttemptSummary[]>([
     {
       id: this.createId('attempt'),
@@ -232,7 +262,8 @@ export class CourseStudioService {
   readonly isLoading = this.loadingState.asReadonly();
   readonly isLoaded = this.loadedState.asReadonly();
   readonly loadError = this.loadErrorState.asReadonly();
-  readonly versionLoadingQuestionId = this.versionLoadingState.asReadonly();
+  readonly versionLoadingQuestionId = this.questionVersionLoadingState.asReadonly();
+  readonly versionLoadingQuizId = this.quizVersionLoadingState.asReadonly();
 
   readonly categories = this.categoriesState.asReadonly();
   readonly questions = this.questionsState.asReadonly();
@@ -327,6 +358,9 @@ export class CourseStudioService {
     this.questionPreviewTotalItemsState.set(0);
     this.questionPreviewTotalPagesState.set(0);
     this.questionVersionsState.set({});
+    this.quizVersionsState.set({});
+    this.questionVersionLoadingState.set(null);
+    this.quizVersionLoadingState.set(null);
     this.activeAttemptState.set(null);
 
     forkJoin({
@@ -461,6 +495,19 @@ export class CourseStudioService {
               )
             }))
           );
+          this.quizVersionsState.update((versionsMap) =>
+            Object.fromEntries(
+              Object.entries(versionsMap).map(([quizId, versions]) => [
+                Number(quizId),
+                versions.map((version) => ({
+                  ...version,
+                  categories: version.categories.map((category) =>
+                    category.id === updatedCategory.id ? { id: updatedCategory.id, name: updatedCategory.name } : category
+                  )
+                }))
+              ])
+            )
+          );
         })
       );
   }
@@ -488,6 +535,17 @@ export class CourseStudioService {
             ...quiz,
             categories: quiz.categories.filter((category) => category.id !== categoryId)
           }))
+        );
+        this.quizVersionsState.update((versionsMap) =>
+          Object.fromEntries(
+            Object.entries(versionsMap).map(([quizId, versions]) => [
+              Number(quizId),
+              versions.map((version) => ({
+                ...version,
+                categories: version.categories.filter((category) => category.id !== categoryId)
+              }))
+            ])
+          )
         );
       })
     );
@@ -529,7 +587,7 @@ export class CourseStudioService {
       return of(this.questionVersionsState()[questionId]);
     }
 
-    this.versionLoadingState.set(questionId);
+    this.questionVersionLoadingState.set(questionId);
 
     return this.http.get<QuestionVersionApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/questions/${questionId}/versions`).pipe(
       map((versions) => versions.map((version) => this.mapQuestionVersion(version))),
@@ -547,7 +605,7 @@ export class CourseStudioService {
         throw error;
       }),
       finalize(() => {
-        this.versionLoadingState.set(null);
+        this.questionVersionLoadingState.set(null);
       })
     );
   }
@@ -579,8 +637,47 @@ export class CourseStudioService {
         this.quizzesState.update((quizzes) =>
           quizzes.map((quiz) => (quiz.id === quizId ? updatedQuiz : quiz))
         );
+        this.quizVersionsState.update((versionsMap) => {
+          const nextMap = { ...versionsMap };
+          delete nextMap[quizId];
+          return nextMap;
+        });
       })
     );
+  }
+
+  loadQuizVersions(quizId: number, force = false) {
+    const courseId = this.requireActiveCourseId();
+
+    if (this.quizVersionsState()[quizId] && !force) {
+      return of(this.quizVersionsState()[quizId]);
+    }
+
+    this.quizVersionLoadingState.set(quizId);
+
+    return this.http.get<QuizVersionApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/quizzes/${quizId}/versions`).pipe(
+      map((versions) => versions.map((version) => this.mapQuizVersion(version))),
+      tap((versions) => {
+        this.quizVersionsState.update((versionsMap) => ({
+          ...versionsMap,
+          [quizId]: versions
+        }));
+      }),
+      catchError((error) => {
+        this.quizVersionsState.update((versionsMap) => ({
+          ...versionsMap,
+          [quizId]: []
+        }));
+        throw error;
+      }),
+      finalize(() => {
+        this.quizVersionLoadingState.set(null);
+      })
+    );
+  }
+
+  getQuizVersions(quizId: number): StudioQuizVersion[] {
+    return this.quizVersionsState()[quizId] ?? [];
   }
 
   findQuizById(quizId: number): StudioQuiz | null {
@@ -799,6 +896,22 @@ export class CourseStudioService {
       questionOrder: quiz.questionOrder,
       answerOrder: quiz.answerOrder,
       categories: [...quiz.categories]
+    };
+  }
+
+  private mapQuizVersion(version: QuizVersionApiDto): StudioQuizVersion {
+    return {
+      id: version.id,
+      quizId: version.quizId,
+      versionNumber: version.versionNumber,
+      createdAt: version.createdAt,
+      title: version.title,
+      mode: version.mode,
+      questionIds: [...version.questionIds],
+      randomCount: version.randomCount,
+      questionOrder: version.questionOrder,
+      answerOrder: version.answerOrder,
+      categories: [...version.categories]
     };
   }
 
