@@ -32,4 +32,68 @@ export class CourseStudioPageComponent {
       }
     });
   }
+
+  quizAudienceLabel(mode: 'manual' | 'random' | 'category'): string {
+    if (mode === 'manual') {
+      return 'Guided quiz';
+    }
+
+    if (mode === 'random') {
+      return 'Random quiz';
+    }
+
+    return 'Category quiz';
+  }
+
+  quizSummary(quiz: {
+    mode: 'manual' | 'random' | 'category';
+    resolvedQuestionCount: number;
+    randomCount: number | null;
+    categories: { name: string }[];
+  }): string {
+    if (quiz.mode === 'manual') {
+      return `This quiz uses a fixed set of ${this.formatQuestionCount(quiz.resolvedQuestionCount)}.`;
+    }
+
+    if (quiz.mode === 'random') {
+      const randomCount = quiz.randomCount ?? quiz.resolvedQuestionCount;
+      return `This quiz draws ${this.formatQuestionCount(randomCount)} from the full course bank each time it starts.`;
+    }
+
+    const categoryNames = quiz.categories.map((category) => category.name);
+
+    if (!categoryNames.length) {
+      return 'This quiz includes every question from the selected categories.';
+    }
+
+    return `This quiz includes every question from: ${this.formatNameList(categoryNames)}.`;
+  }
+
+  quizOrderSummary(quiz: { questionOrder: 'fixed' | 'random'; answerOrder: 'fixed' | 'random' }): string {
+    return `${this.describeQuestionOrder(quiz.questionOrder)} and ${this.describeAnswerOrder(quiz.answerOrder)}.`;
+  }
+
+  private describeQuestionOrder(order: 'fixed' | 'random'): string {
+    return order === 'random' ? 'Questions are shown in random order' : 'Questions stay in the saved order';
+  }
+
+  private describeAnswerOrder(order: 'fixed' | 'random'): string {
+    return order === 'random' ? 'answers are shown in random order' : 'answers stay in the saved order';
+  }
+
+  private formatQuestionCount(count: number): string {
+    return `${count} question${count === 1 ? '' : 's'}`;
+  }
+
+  private formatNameList(names: string[]): string {
+    if (names.length <= 1) {
+      return names[0] ?? '';
+    }
+
+    if (names.length === 2) {
+      return `${names[0]} and ${names[1]}`;
+    }
+
+    return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+  }
 }

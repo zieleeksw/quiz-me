@@ -484,20 +484,27 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
     this.pendingChangesConfirmation.handleBeforeUnload(event, this.hasPendingChanges());
   }
 
-  quizModeLabel(mode: 'manual' | 'random' | 'category'): string {
-    if (mode === 'manual') {
-      return 'Manual quiz';
+  quizVersionSummary(version: StudioQuizVersion): string {
+    if (version.mode === 'manual') {
+      return `This manual version keeps ${this.formatQuestionCount(version.questionIds.length)} in the selected list.`;
     }
 
-    if (mode === 'random') {
-      return 'Random quiz';
+    if (version.mode === 'random') {
+      const randomCount = version.randomCount ?? 0;
+      return `This random version draws ${this.formatQuestionCount(randomCount)} from the full course bank.`;
     }
 
-    return 'Category quiz';
+    const categoryNames = version.categories.map((category) => category.name);
+
+    if (!categoryNames.length) {
+      return 'This category version includes every current question from the selected categories.';
+    }
+
+    return `This category version includes every current question from: ${this.formatNameList(categoryNames)}.`;
   }
 
-  orderLabel(order: 'fixed' | 'random', subject: 'Questions' | 'Answers'): string {
-    return `${subject}: ${order === 'random' ? 'random' : 'fixed'}`;
+  quizVersionOrderSummary(version: StudioQuizVersion): string {
+    return `${this.describeQuestionOrder(version.questionOrder)} and ${this.describeAnswerOrder(version.answerOrder)}.`;
   }
 
   resolveQuestionPreview(questionId: number): string {
@@ -571,6 +578,30 @@ export class CourseQuizEditorPageComponent implements PendingChangesAware {
         this.quizHistoryMessage.set(extractApiMessage(error) ?? 'Unable to load quiz history right now.');
       }
     });
+  }
+
+  private describeQuestionOrder(order: 'fixed' | 'random'): string {
+    return order === 'random' ? 'questions are shown in random order' : 'questions stay in the saved order';
+  }
+
+  private describeAnswerOrder(order: 'fixed' | 'random'): string {
+    return order === 'random' ? 'answers are shown in random order' : 'answers stay in the saved order';
+  }
+
+  private formatQuestionCount(count: number): string {
+    return `${count} question${count === 1 ? '' : 's'}`;
+  }
+
+  private formatNameList(names: string[]): string {
+    if (names.length <= 1) {
+      return names[0] ?? '';
+    }
+
+    if (names.length === 2) {
+      return `${names[0]} and ${names[1]}`;
+    }
+
+    return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
   }
 
   private captureQuizDraft(): QuizDraftSnapshot {

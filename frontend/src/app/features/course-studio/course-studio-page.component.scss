@@ -135,6 +135,15 @@
   background: rgba(247, 251, 249, 0.86);
 }
 
+.studio-quiz-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.studio-quiz-copy p {
+  margin: 0;
+}
+
 .studio-grid--preview .studio-list {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

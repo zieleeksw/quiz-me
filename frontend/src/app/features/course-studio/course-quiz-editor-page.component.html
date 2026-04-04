@@ -355,21 +355,12 @@
                   <span class="studio-meta">{{ version.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
                 </div>
 
-                <div class="studio-inline-badges">
-                  <span class="studio-badge studio-badge--quiz">{{ quizModeLabel(version.mode) }}</span>
-                  <span class="studio-badge">{{ orderLabel(version.questionOrder, 'Questions') }}</span>
-                  <span class="studio-badge">{{ orderLabel(version.answerOrder, 'Answers') }}</span>
-
-                  @if (version.mode === 'random' && version.randomCount) {
-                    <span class="studio-badge">Draw {{ version.randomCount }}</span>
-                  }
-
-                  @if (version.mode === 'manual') {
-                    <span class="studio-badge">{{ version.questionIds.length }} fixed question{{ version.questionIds.length === 1 ? '' : 's' }}</span>
-                  }
+                <div class="studio-version-copy">
+                  <p class="studio-meta">{{ quizVersionSummary(version) }}</p>
+                  <p class="studio-meta">{{ quizVersionOrderSummary(version) }}</p>
                 </div>
 
-                @if (version.categories.length) {
+                @if (version.categories.length && version.mode !== 'category') {
                   <div class="studio-inline-badges">
                     @for (category of version.categories; track category.id) {
                       <span class="studio-badge">{{ category.name }}</span>
@@ -395,14 +386,12 @@
                     }
                     </div>
                   </div>
-                } @else if (version.mode === 'random') {
-                  <p class="studio-meta">
-                    This version draws {{ version.randomCount ?? 0 }} random question{{ version.randomCount === 1 ? '' : 's' }} from the course bank.
-                  </p>
-                } @else {
-                  <p class="studio-meta">
-                    This version includes every current question assigned to the selected categories.
-                  </p>
+                } @else if (version.mode !== 'random') {
+                  <div class="studio-inline-badges">
+                    @for (category of version.categories; track category.id) {
+                      <span class="studio-badge">{{ category.name }}</span>
+                    }
+                  </div>
                 }
               </article>
             }

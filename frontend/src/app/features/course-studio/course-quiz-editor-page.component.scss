@@ -17,6 +17,15 @@
   gap: 0.7rem;
 }
 
+.studio-version-copy {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.studio-version-copy p {
+  margin: 0;
+}
+
 .studio-version-options--quiz-history {
   max-height: 18rem;
   overflow: auto;

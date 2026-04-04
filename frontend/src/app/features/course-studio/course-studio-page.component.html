@@ -56,28 +56,24 @@
             <div class="studio-item__top">
               <div>
                 <span class="studio-badge studio-badge--quiz">
-                  {{ quiz.mode === 'manual' ? 'Guided quiz' : quiz.mode === 'random' ? 'Random quiz' : 'Category quiz' }}
+                  {{ quizAudienceLabel(quiz.mode) }}
                 </span>
                 <h3>{{ quiz.title }}</h3>
               </div>
-
-              <strong class="studio-score studio-score--small">{{ quiz.resolvedQuestionCount }}</strong>
             </div>
 
-            <p class="studio-meta">
-              @if (quiz.mode === 'manual') {
-                <span>Built from a fixed set of course questions.</span>
-              } @else if (quiz.mode === 'random') {
-                <span>Pulls a fresh set of random questions from the whole course bank.</span>
-              } @else {
-                <span>Includes every question from the selected categories.</span>
-              }
-            </p>
-
-            <div class="studio-meta-group">
-              <span class="studio-meta">Question order: {{ quiz.questionOrder === 'random' ? 'random' : 'fixed' }}</span>
-              <span class="studio-meta">Answer order: {{ quiz.answerOrder === 'random' ? 'random' : 'fixed' }}</span>
+            <div class="studio-quiz-copy">
+              <p class="studio-meta">{{ quizSummary(quiz) }}</p>
+              <p class="studio-meta">{{ quizOrderSummary(quiz) }}</p>
             </div>
+
+            @if (quiz.mode === 'category' && quiz.categories.length) {
+              <div class="studio-inline-badges">
+                @for (category of quiz.categories; track category.id) {
+                  <span class="studio-badge">{{ category.name }}</span>
+                }
+              </div>
+            }
 
             <div class="app-actions-row">
               <app-action-button label="Start Quiz" [routerLink]="null" [nativeType]="'button'" tone="secondary" (click)="studio.startQuiz(quiz.id)" />
