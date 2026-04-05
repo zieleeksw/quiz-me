@@ -19,6 +19,7 @@ export class CourseStudioPageComponent {
   readonly studio = inject(CourseStudioService);
   readonly courseSlug = this.route.snapshot.paramMap.get('courseSlug') ?? 'spring-boot-associate';
   readonly currentCourse = computed(() => this.coursesCatalogService.findBySlug(this.courseSlug));
+  readonly summaryLink = ['/courses', this.courseSlug];
   readonly editorLink = ['/courses', this.courseSlug, 'editor'];
 
   constructor() {

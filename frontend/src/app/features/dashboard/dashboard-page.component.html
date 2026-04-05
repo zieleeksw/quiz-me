@@ -88,38 +88,40 @@
       <section class="courses-grid">
         @for (course of courses(); track trackCourse($index, course)) {
           <article class="course-card course-card--available">
-            <div class="course-card__top">
-              <span class="course-card__badge course-card__badge--secondary">Available now</span>
-              <h2>{{ course.title }}</h2>
-              <p>{{ course.subtitle }}</p>
-              <div class="course-card__meta">
-                <p class="course-card__owner">
-                  <span>Owner</span>
-                  <strong>{{ resolveOwnerLabel(course) }}</strong>
-                </p>
-                <p class="course-card__created">Created {{ course.createdAt | date: 'dd MMM yyyy' }}</p>
-              </div>
-            </div>
-
-            <div class="course-card__stats">
-              <div class="course-card__stat">
-                <span>Questions</span>
-                <strong>{{ course.questionCount }}</strong>
+            <a class="course-card__preview" [routerLink]="resolveCourseLink(course)">
+              <div class="course-card__top">
+                <span class="course-card__badge course-card__badge--secondary">Available now</span>
+                <h2>{{ course.title }}</h2>
+                <p>{{ course.subtitle }}</p>
+                <div class="course-card__meta">
+                  <p class="course-card__owner">
+                    <span>Owner</span>
+                    <strong>{{ resolveOwnerLabel(course) }}</strong>
+                  </p>
+                  <p class="course-card__created">Created {{ course.createdAt | date: 'dd MMM yyyy' }}</p>
+                </div>
               </div>
 
-              <div class="course-card__stat">
-                <span>Quizzes</span>
-                <strong>{{ course.quizCount }}</strong>
-              </div>
+              <div class="course-card__stats">
+                <div class="course-card__stat">
+                  <span>Questions</span>
+                  <strong>{{ course.questionCount }}</strong>
+                </div>
 
-              <div class="course-card__stat">
-                <span>Progress</span>
-                <strong>{{ course.progressPercent }}%</strong>
+                <div class="course-card__stat">
+                  <span>Quizzes</span>
+                  <strong>{{ course.quizCount }}</strong>
+                </div>
+
+                <div class="course-card__stat">
+                  <span>Progress</span>
+                  <strong>{{ course.progressPercent }}%</strong>
+                </div>
               </div>
-            </div>
+            </a>
 
             <div class="course-card__footer">
-              <app-action-button label="Open Course" [routerLink]="resolveCourseLink(course)" tone="secondary" size="compact" />
+              <app-action-button label="Open Summary" [routerLink]="resolveCourseLink(course)" tone="secondary" size="compact" />
 
               @if (canEditCourse(course)) {
                 <app-action-button label="Edit Course" size="compact" (clicked)="openEditEditor(course)" />

@@ -22,6 +22,7 @@ export class CourseQuizPlayPageComponent {
   readonly courseSlug = this.route.snapshot.paramMap.get('courseSlug') ?? 'spring-boot-associate';
   readonly quizId = Number(this.route.snapshot.paramMap.get('quizId') ?? Number.NaN);
   readonly currentCourse = computed(() => this.coursesCatalogService.findBySlug(this.courseSlug));
+  readonly quizLibraryLink = ['/courses', this.courseSlug, 'quizzes'];
   readonly activeAttempt = computed(() => this.studio.activeAttempt());
   readonly attemptResult = computed(() => this.activeAttempt()?.result ?? null);
   readonly activeQuiz = computed(() => (Number.isFinite(this.quizId) ? this.studio.findQuizById(this.quizId) : null));
@@ -169,12 +170,12 @@ export class CourseQuizPlayPageComponent {
     this.studio.startQuiz(this.quizId);
   }
 
-  returnToCourse(): void {
+  returnToQuizLibrary(): void {
     if (this.activeAttempt()?.finished) {
       this.studio.clearAttempt();
     }
 
-    void this.router.navigate(['/courses', this.courseSlug]);
+    void this.router.navigate(this.quizLibraryLink);
   }
 
   private createQuestionPreview(question: StudioQuestion): string {
