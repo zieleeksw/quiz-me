@@ -8,6 +8,8 @@ import { DashboardPageComponent } from './features/dashboard/dashboard-page.comp
 import { LoginPageComponent } from './features/auth/login-page.component';
 import { RegisterPageComponent } from './features/auth/register-page.component';
 import { CourseAttemptReviewPageComponent } from './features/course-studio/course-attempt-review-page.component';
+import { CourseQuestionInsightsPageComponent } from './features/course-studio/course-question-insights-page.component';
+import { CourseQuizInsightsPageComponent } from './features/course-studio/course-quiz-insights-page.component';
 import { CourseSummaryPageComponent } from './features/course-studio/course-summary-page.component';
 import { CourseStudioPageComponent } from './features/course-studio/course-studio-page.component';
 import { CourseStudioEditorPageComponent } from './features/course-studio/course-studio-editor-page.component';
@@ -54,6 +56,26 @@ export const routes: Routes = [
   {
     path: 'courses/:courseSlug/quizzes/:quizId/play',
     component: CourseQuizPlayPageComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'courses/:courseSlug/insights/quizzes',
+    component: CourseQuizInsightsPageComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'courses/:courseSlug/insights/quizzes/:quizId',
+    component: CourseQuizInsightsPageComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'courses/:courseSlug/insights/questions',
+    component: CourseQuestionInsightsPageComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'courses/:courseSlug/insights/questions/:questionId',
+    component: CourseQuestionInsightsPageComponent,
     canActivate: [authGuard]
   },
   {

@@ -83,6 +83,17 @@ class QuizAttemptController {
         return quizAttemptFacade.fetchCourseAttempts(courseId, currentUser.id());
     }
 
+    @GetMapping("/attempts/reviews")
+    @PreAuthorize("isAuthenticated()")
+    List<QuizAttemptDetailDto> fetchCourseAttemptReviews(
+            final Authentication authentication,
+            @PathVariable final Long courseId
+    ) {
+        final UserDto currentUser = userFacade.findUserByEmailOrThrow(authentication.getName());
+
+        return quizAttemptFacade.fetchCourseAttemptReviews(courseId, currentUser.id());
+    }
+
     @GetMapping("/attempts/{attemptId}")
     @PreAuthorize("isAuthenticated()")
     QuizAttemptDetailDto fetchAttemptDetail(

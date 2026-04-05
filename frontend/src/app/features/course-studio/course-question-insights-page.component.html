@@ -1,0 +1,154 @@
+<main class="workspace-shell studio-shell">
+  <app-workspace-topbar />
+
+  <section class="studio-hero">
+    <div>
+      <p class="app-eyebrow">Question Insights</p>
+      <h1 class="studio-title">{{ activeQuestion()?.prompt ?? (currentCourse()?.title ?? studio.courseTitle()) }}</h1>
+      <p class="studio-copy">Choose any question from the course bank to see how learners usually perform on it across recorded attempts.</p>
+    </div>
+
+    <div class="studio-hero__actions">
+      <app-action-button label="Back to Summary" [routerLink]="summaryLink" tone="secondary" />
+      <app-action-button label="Quiz Stats" [routerLink]="quizInsightsLink" tone="secondary" />
+    </div>
+  </section>
+
+  <section class="quiz-play-layout">
+    <aside class="studio-card quiz-play-sidebar">
+      <div class="quiz-play-sidebar__header">
+        <p class="app-eyebrow">Questions</p>
+        <h2>{{ availableQuestions().length }} In Course</h2>
+      </div>
+
+      <div class="quiz-play-sidebar__list">
+        @for (question of availableQuestions(); track question.id) {
+          <a
+            class="quiz-play-nav quiz-play-nav--link"
+            [class.quiz-play-nav--active]="activeQuestion()?.id === question.id"
+            [routerLink]="questionLink(question.id)"
+          >
+            <span class="quiz-play-nav__number">Q</span>
+            <strong>{{ question.prompt }}</strong>
+          </a>
+        } @empty {
+          <div class="studio-empty">
+            <h3>No questions yet.</h3>
+            <p>Add questions to the course bank and they will appear here automatically.</p>
+          </div>
+        }
+      </div>
+    </aside>
+
+    <section class="insights-main">
+      @if (activeQuestion(); as question) {
+        <section class="studio-stats insights-stats">
+          <article class="studio-stat-card">
+            <span class="studio-stat-card__label">Seen In Attempts</span>
+            <strong>{{ questionSeenCount() }}</strong>
+            <p>Recorded attempts that included this question in their saved review history.</p>
+          </article>
+
+          <article class="studio-stat-card">
+            <span class="studio-stat-card__label">Accuracy</span>
+            <strong>{{ questionAccuracyPercent() }}%</strong>
+            <p>How often learners answered this exact question correctly.</p>
+          </article>
+
+          <article class="studio-stat-card">
+            <span class="studio-stat-card__label">Correct</span>
+            <strong>{{ questionCorrectCount() }}</strong>
+            <p>Attempts where this question was answered correctly.</p>
+          </article>
+
+          <article class="studio-stat-card">
+            <span class="studio-stat-card__label">Incorrect</span>
+            <strong>{{ questionIncorrectCount() }}</strong>
+            <p>Attempts where this question was answered incorrectly.</p>
+          </article>
+        </section>
+
+        <section class="summary-grid insights-grid">
+          <article class="studio-card summary-card">
+            <div class="studio-card__header">
+              <p class="app-eyebrow">Question</p>
+              <div class="studio-card__headline">
+                <div>
+                  <h2>Current Prompt And Answers</h2>
+                  <p class="studio-card__hint">This is the current version of the course question, so you can compare the wording with its recent performance.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="studio-answer-grid">
+              @for (option of question.options; track option.id) {
+                <div class="studio-answer studio-answer--review" [class.studio-answer--review-correct]="option.correct">
+                  <span class="studio-answer__index">{{ $index + 1 }}</span>
+                  <div class="attempt-review-answer__content">
+                    <strong>{{ option.content }}</strong>
+                    <div class="attempt-review-answer__meta">
+                      @if (option.correct) {
+                        <span class="attempt-review-chip attempt-review-chip--success">Correct answer</span>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="studio-card summary-card">
+            <div class="studio-card__header">
+              <p class="app-eyebrow">Recent Results</p>
+              <div class="studio-card__headline">
+                <div>
+                  <h2>How This Question Usually Goes</h2>
+                  <p class="studio-card__hint">Each row below shows one recorded attempt that included this question.</p>
+                </div>
+              </div>
+            </div>
+
+            @if (reviewLoadError()) {
+              <div class="studio-empty">
+                <h3>Question stats are unavailable.</h3>
+                <p>{{ reviewLoadError() }}</p>
+              </div>
+            } @else if (isLoadingReviews()) {
+              <div class="studio-empty">
+                <h3>Loading question attempts...</h3>
+                <p>Collecting saved answer history for this question.</p>
+              </div>
+            } @else if (questionAttemptRows().length) {
+              <div class="summary-attempts">
+                @for (row of questionAttemptRows(); track row.attemptId) {
+                  <a class="summary-attempt" [routerLink]="attemptReviewLink(row.attemptId)">
+                    <div>
+                      <strong>{{ row.quizTitle }}</strong>
+                      <p>{{ row.finishedAt | date: 'd MMM yyyy, HH:mm' }}</p>
+                    </div>
+
+                    <span class="question-result-chip" [class.question-result-chip--success]="row.answeredCorrectly" [class.question-result-chip--danger]="!row.answeredCorrectly">
+                      {{ row.answeredCorrectly ? 'Correct' : 'Incorrect' }}
+                    </span>
+                  </a>
+                }
+              </div>
+            } @else {
+              <div class="studio-empty">
+                <h3>No recorded history for this question yet.</h3>
+                <p>Question-level stats appear after attempts with saved answer review include this question.</p>
+              </div>
+            }
+          </article>
+        </section>
+      } @else {
+        <article class="studio-card">
+          <div class="studio-empty">
+            <h3>No question selected.</h3>
+            <p>Choose any question from the left to inspect how learners usually perform on it.</p>
+          </div>
+        </article>
+      }
+    </section>
+  </section>
+</main>

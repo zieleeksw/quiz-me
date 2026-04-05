@@ -1,0 +1,172 @@
+<main class="workspace-shell studio-shell">
+  <app-workspace-topbar />
+
+  <section class="studio-hero">
+    <div>
+      <p class="app-eyebrow">Quiz Insights</p>
+      <h1 class="studio-title">{{ activeQuizTitle() }}</h1>
+      <p class="studio-copy">
+        @if (activeQuiz(); as quiz) {
+          {{ quizSummary(quiz) }}
+        } @else {
+          Pick a quiz to see only its attempts, score trends, and question-level performance.
+        }
+      </p>
+    </div>
+
+    <div class="studio-hero__actions">
+      <app-action-button label="Back to Summary" [routerLink]="summaryLink" tone="secondary" />
+      <app-action-button label="Question Stats" [routerLink]="questionInsightsLink" tone="secondary" />
+    </div>
+  </section>
+
+  <section class="quiz-play-layout">
+    <aside class="studio-card quiz-play-sidebar">
+      <div class="quiz-play-sidebar__header">
+        <p class="app-eyebrow">Quizzes</p>
+        <h2>{{ availableQuizzes().length }} Available</h2>
+      </div>
+
+      <div class="quiz-play-sidebar__list">
+        @for (quiz of availableQuizzes(); track quiz.id) {
+          <a
+            class="quiz-play-nav quiz-play-nav--link"
+            [class.quiz-play-nav--active]="activeQuizId() === quiz.id"
+            [routerLink]="quizLink(quiz.id)"
+          >
+            <span class="quiz-play-nav__number">{{ quizModeLabel(quiz.mode) }}</span>
+            <strong>{{ quiz.title }}</strong>
+          </a>
+        } @empty {
+          <div class="studio-empty">
+            <h3>No quizzes yet.</h3>
+            <p>Create or publish a quiz first and this area will populate automatically.</p>
+          </div>
+        }
+      </div>
+    </aside>
+
+    <section class="insights-main">
+      @if (activeQuiz(); as quiz) {
+        <section class="studio-stats insights-stats">
+          <article class="studio-stat-card">
+            <span class="studio-stat-card__label">Attempts</span>
+            <strong>{{ quizAttemptCount() }}</strong>
+            <p>Completed runs recorded for this quiz only.</p>
+          </article>
+
+          <article class="studio-stat-card">
+            <span class="studio-stat-card__label">Average Score</span>
+            <strong>{{ quizAverageScore() }}%</strong>
+            <p>The average result across attempts for this single quiz.</p>
+          </article>
+
+          <article class="studio-stat-card">
+            <span class="studio-stat-card__label">Best Score</span>
+            <strong>{{ quizBestScore() }}%</strong>
+            <p>The strongest finish reached on this quiz so far.</p>
+          </article>
+
+          <article class="studio-stat-card">
+            <span class="studio-stat-card__label">In Progress</span>
+            <strong>{{ quizInProgressCount() }}</strong>
+            <p>Sessions currently open and still resumable for this quiz.</p>
+          </article>
+        </section>
+
+        <section class="summary-grid insights-grid">
+          <article class="studio-card summary-card">
+            <div class="studio-card__header">
+              <p class="app-eyebrow">Attempts</p>
+              <div class="studio-card__headline">
+                <div>
+                  <h2>Only Attempts From This Quiz</h2>
+                  <p class="studio-card__hint">Every row below belongs to {{ quiz.title }} and can be opened into the full answer review screen.</p>
+                </div>
+              </div>
+            </div>
+
+            @if (filteredAttempts().length) {
+              <div class="summary-attempts">
+                @for (attempt of filteredAttempts(); track attempt.id) {
+                  <a class="summary-attempt" [routerLink]="attemptReviewLink(attempt.id)">
+                    <div>
+                      <strong>{{ attempt.correctAnswers }}/{{ attempt.totalQuestions }} correct</strong>
+                      <p>{{ attempt.finishedAt | date: 'd MMM yyyy, HH:mm' }}</p>
+                    </div>
+
+                    <span class="summary-attempt__score">{{ attempt.scorePercent }}%</span>
+                  </a>
+                }
+              </div>
+            } @else {
+              <div class="studio-empty">
+                <h3>No attempts for this quiz yet.</h3>
+                <p>As soon as learners finish this quiz, its dedicated attempt history will appear here.</p>
+              </div>
+            }
+          </article>
+
+          <article class="studio-card summary-card">
+            <div class="studio-card__header">
+              <p class="app-eyebrow">Question Breakdown</p>
+              <div class="studio-card__headline">
+                <div>
+                  <h2>How Learners Perform Inside This Quiz</h2>
+                  <p class="studio-card__hint">Detailed question stats are based on attempts that include saved answer history.</p>
+                </div>
+              </div>
+            </div>
+
+            @if (reviewLoadError()) {
+              <div class="studio-empty">
+                <h3>Question stats are unavailable.</h3>
+                <p>{{ reviewLoadError() }}</p>
+              </div>
+            } @else if (isLoadingReviews()) {
+              <div class="studio-empty">
+                <h3>Loading question stats...</h3>
+                <p>Collecting saved answer history for this quiz.</p>
+              </div>
+            } @else if (quizQuestionPerformance().length) {
+              <div class="summary-bars">
+                @for (question of quizQuestionPerformance(); track question.questionId) {
+                  <div class="summary-bar">
+                    <div class="summary-bar__meta">
+                      <strong>{{ question.prompt }}</strong>
+                      <span>{{ question.correctCount }}/{{ question.attempts }} correct</span>
+                    </div>
+                    <div class="summary-bar__track">
+                      <span class="summary-bar__fill" [style.width.%]="question.accuracyPercent"></span>
+                    </div>
+                    <p class="studio-meta">{{ question.accuracyPercent }}% accuracy across {{ question.attempts }} recorded attempt{{ question.attempts === 1 ? '' : 's' }}.</p>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="studio-empty">
+                <h3>No question-level review history yet.</h3>
+                <p>Fresh attempts with saved answer review will start filling this breakdown automatically.</p>
+              </div>
+            }
+
+            <div class="summary-highlight">
+              <strong>Course Question Stats</strong>
+              <p>Open the full course question analytics to switch between every question in the course, not just this quiz.</p>
+              <div class="summary-highlight__actions">
+                <app-action-button label="Open Question Stats" [routerLink]="questionInsightsLink" size="compact" tone="secondary" />
+              </div>
+            </div>
+          </article>
+        </section>
+      } @else {
+        <article class="studio-card">
+          <div class="studio-empty">
+            <h3>No quiz selected.</h3>
+            <p>Choose a quiz from the left to inspect its attempts and score behavior.</p>
+          </div>
+        </article>
+      }
+    </section>
+  </section>
+</main>

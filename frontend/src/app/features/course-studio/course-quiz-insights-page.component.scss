@@ -1,0 +1,28 @@
+@use './course-summary-page.component.scss' as *;
+@use './course-quiz-play-page.component.scss' as *;
+
+.quiz-play-nav--link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.insights-main {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.insights-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.insights-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1180px) {
+  .insights-stats,
+  .insights-grid {
+    grid-template-columns: 1fr;
+  }
+}

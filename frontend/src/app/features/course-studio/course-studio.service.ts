@@ -794,6 +794,12 @@ export class CourseStudioService {
       .pipe(map((attempt) => this.mapAttemptReview(attempt)));
   }
 
+  loadAttemptReviews(courseId: number) {
+    return this.http
+      .get<QuizAttemptDetailApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/attempts/reviews`)
+      .pipe(map((attempts) => attempts.map((attempt) => this.mapAttemptReview(attempt))));
+  }
+
   archiveQuiz(quizId: number) {
     const courseId = this.requireActiveCourseId();
 

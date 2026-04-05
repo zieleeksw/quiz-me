@@ -31,6 +31,13 @@ type AttemptCard = {
   scorePercent: number;
 };
 
+type QuizInsightPreview = {
+  id: number;
+  title: string;
+  attempts: number;
+  averageScore: number;
+};
+
 @Component({
   selector: 'app-course-summary-page',
   imports: [RouterLink, DatePipe, ActionButtonComponent, WorkspaceTopbarComponent],
@@ -47,6 +54,7 @@ export class CourseSummaryPageComponent {
   readonly currentCourse = computed(() => this.coursesCatalogService.findBySlug(this.courseSlug));
   readonly quizzesLink = ['/courses', this.courseSlug, 'quizzes'];
   readonly editorLink = ['/courses', this.courseSlug, 'editor'];
+  readonly questionInsightsLink = ['/courses', this.courseSlug, 'insights', 'questions'];
 
   readonly quizFormatSegments = computed<SummarySegment[]>(() => {
     const quizzes = this.studio.quizzes();
@@ -120,6 +128,20 @@ export class CourseSummaryPageComponent {
         scorePercent: attempt.totalQuestions ? Math.round((attempt.correctAnswers / attempt.totalQuestions) * 100) : 0
       }))
   );
+  readonly quizInsightPreviews = computed<QuizInsightPreview[]>(() =>
+    this.studio.quizzes().map((quiz) => {
+      const attempts = this.studio.attempts().filter((attempt) => attempt.quizId === quiz.id);
+
+      return {
+        id: quiz.id,
+        title: quiz.title,
+        attempts: attempts.length,
+        averageScore: attempts.length
+          ? Math.round(attempts.reduce((sum, attempt) => sum + (attempt.totalQuestions ? (attempt.correctAnswers / attempt.totalQuestions) * 100 : 0), 0) / attempts.length)
+          : 0
+      };
+    })
+  );
 
   readonly bestAttemptScore = computed(() =>
     this.studio.attempts().reduce((best, attempt) => Math.max(best, attempt.totalQuestions ? Math.round((attempt.correctAnswers / attempt.totalQuestions) * 100) : 0), 0)
@@ -164,6 +186,10 @@ export class CourseSummaryPageComponent {
 
   attemptReviewLink(attemptId: number): unknown[] {
     return ['/courses', this.courseSlug, 'attempts', attemptId];
+  }
+
+  quizInsightsLink(quizId: number): unknown[] {
+    return ['/courses', this.courseSlug, 'insights', 'quizzes', quizId];
   }
 
   private buildConicGradient(segments: SummarySegment[]): string {

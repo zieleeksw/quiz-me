@@ -77,6 +77,18 @@ public class QuizAttemptFacade {
         return toDetailDto(entity);
     }
 
+    public List<QuizAttemptDetailDto> fetchCourseAttemptReviews(
+            final Long courseId,
+            final Long userId
+    ) {
+        courseFacade.findCourseByIdOrThrow(courseId);
+
+        return quizAttemptRepository.findAllByCourseIdAndUserIdOrderByFinishedAtDesc(courseId, userId)
+                .stream()
+                .map(this::toDetailDto)
+                .toList();
+    }
+
     @Transactional
     public QuizAttemptDto createAttempt(
             final Long courseId,

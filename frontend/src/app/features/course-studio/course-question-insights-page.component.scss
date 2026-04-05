@@ -1,0 +1,49 @@
+@use './course-summary-page.component.scss' as *;
+@use './course-quiz-play-page.component.scss' as *;
+@use './course-attempt-review-page.component.scss' as *;
+
+.quiz-play-nav--link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.insights-main {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.insights-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.insights-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.question-result-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 6rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.question-result-chip--success {
+  background: rgba(34, 108, 99, 0.14);
+  color: var(--color-secondary-strong);
+}
+
+.question-result-chip--danger {
+  background: rgba(183, 79, 41, 0.14);
+  color: #8d3e1f;
+}
+
+@media (max-width: 1180px) {
+  .insights-stats,
+  .insights-grid {
+    grid-template-columns: 1fr;
+  }
+}
