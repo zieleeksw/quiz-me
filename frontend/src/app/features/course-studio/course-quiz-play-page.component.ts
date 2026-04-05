@@ -26,7 +26,7 @@ export class CourseQuizPlayPageComponent {
   readonly attemptResult = computed(() => this.activeAttempt()?.result ?? null);
   readonly activeQuiz = computed(() => (Number.isFinite(this.quizId) ? this.studio.findQuizById(this.quizId) : null));
   readonly currentQuestion = computed(() => this.studio.currentQuestion());
-  readonly currentAnswerIndex = computed(() => this.studio.currentAnswerIndex());
+  readonly currentAnswerId = computed(() => this.studio.currentAnswerId());
   readonly totalAttemptQuestions = computed(() => this.studio.activeAttemptQuestions().length);
   readonly currentQuestionNumber = computed(() => (this.activeAttempt()?.currentIndex ?? 0) + 1);
   readonly answeredQuestionCount = computed(() => Object.keys(this.activeAttempt()?.answers ?? {}).length);
@@ -40,7 +40,13 @@ export class CourseQuizPlayPageComponent {
 
     return attempt.currentIndex >= attempt.questionIds.length - 1;
   });
-  readonly canMoveForward = computed(() => this.currentAnswerIndex() !== null);
+  readonly canMoveForward = computed(() => this.currentAnswerId() !== null && !this.studio.isSubmittingAttempt());
+  readonly canFinishAttempt = computed(
+    () =>
+      this.currentAnswerId() !== null &&
+      this.answeredQuestionCount() === this.totalAttemptQuestions() &&
+      !this.studio.isSubmittingAttempt()
+  );
   readonly playSessionKey = computed(() => {
     const course = this.currentCourse();
 
@@ -65,18 +71,13 @@ export class CourseQuizPlayPageComponent {
     if (!question) {
       return [];
     }
-
-    const optionEntries = question.options.map((option, originalIndex) => ({
-      ...option,
-      originalIndex
-    }));
     const answerOrder = this.activeQuiz()?.answerOrder ?? 'fixed';
 
     if (answerOrder !== 'random') {
-      return optionEntries;
+      return question.options;
     }
 
-    return this.createDeterministicShuffle(optionEntries, `${question.id}:${this.activeQuiz()?.id ?? 'practice'}`);
+    return this.createDeterministicShuffle(question.options, `${question.id}:${this.activeQuiz()?.id ?? 'practice'}`);
   });
   readonly isQuizUnavailable = computed(() => {
     if (this.studio.isLoading()) {
@@ -134,8 +135,8 @@ export class CourseQuizPlayPageComponent {
     this.studio.goToQuestion(questionIndex);
   }
 
-  selectAnswer(originalIndex: number): void {
-    this.studio.selectAnswer(originalIndex);
+  selectAnswer(answerId: number): void {
+    this.studio.selectAnswer(answerId);
   }
 
   goToPreviousQuestion(): void {
@@ -151,7 +152,7 @@ export class CourseQuizPlayPageComponent {
   }
 
   finishAttempt(): void {
-    if (!this.canMoveForward()) {
+    if (!this.canFinishAttempt()) {
       return;
     }
 

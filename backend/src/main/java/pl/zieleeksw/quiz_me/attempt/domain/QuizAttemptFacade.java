@@ -1,0 +1,231 @@
+package pl.zieleeksw.quiz_me.attempt.domain;
+
+import org.springframework.transaction.annotation.Transactional;
+import pl.zieleeksw.quiz_me.attempt.QuizAttemptAnswerRequest;
+import pl.zieleeksw.quiz_me.attempt.QuizAttemptDto;
+import pl.zieleeksw.quiz_me.course.domain.CourseFacade;
+import pl.zieleeksw.quiz_me.question.QuestionAnswerDto;
+import pl.zieleeksw.quiz_me.question.QuestionDto;
+import pl.zieleeksw.quiz_me.question.domain.QuestionFacade;
+import pl.zieleeksw.quiz_me.quiz.QuizDto;
+import pl.zieleeksw.quiz_me.quiz.QuizMode;
+import pl.zieleeksw.quiz_me.quiz.domain.QuizFacade;
+import pl.zieleeksw.quiz_me.quiz.domain.QuizNotFoundException;
+
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public class QuizAttemptFacade {
+
+    private final QuizAttemptRepository quizAttemptRepository;
+    private final CourseFacade courseFacade;
+    private final QuizFacade quizFacade;
+    private final QuestionFacade questionFacade;
+
+    QuizAttemptFacade(
+            final QuizAttemptRepository quizAttemptRepository,
+            final CourseFacade courseFacade,
+            final QuizFacade quizFacade,
+            final QuestionFacade questionFacade
+    ) {
+        this.quizAttemptRepository = quizAttemptRepository;
+        this.courseFacade = courseFacade;
+        this.quizFacade = quizFacade;
+        this.questionFacade = questionFacade;
+    }
+
+    public List<QuizAttemptDto> fetchCourseAttempts(
+            final Long courseId,
+            final Long userId
+    ) {
+        courseFacade.findCourseByIdOrThrow(courseId);
+
+        return quizAttemptRepository.findAllByCourseIdAndUserIdOrderByFinishedAtDesc(courseId, userId)
+                .stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Transactional
+    public QuizAttemptDto createAttempt(
+            final Long courseId,
+            final Long quizId,
+            final Long userId,
+            final List<QuizAttemptAnswerRequest> answers
+    ) {
+        courseFacade.findCourseByIdOrThrow(courseId);
+
+        final QuizDto quiz = quizFacade.fetchQuizzes(courseId)
+                .stream()
+                .filter(candidate -> candidate.id().equals(quizId))
+                .findFirst()
+                .orElseThrow(() -> QuizNotFoundException.forId(quizId));
+
+        if (!quiz.active()) {
+            throw QuizNotFoundException.forId(quizId);
+        }
+
+        final Map<Long, Long> submittedAnswers = normalizeSubmittedAnswers(answers);
+        final List<QuestionDto> currentQuestions = questionFacade.fetchQuestions(courseId);
+        final Map<Long, QuestionDto> questionsById = currentQuestions.stream()
+                .collect(LinkedHashMap::new, (map, question) -> map.put(question.id(), question), Map::putAll);
+        final AttemptQuestionSpec questionSpec = resolveQuestionSpec(quiz, currentQuestions);
+
+        assertSubmittedQuestionsMatchQuiz(quiz, submittedAnswers.keySet(), questionSpec);
+
+        final int correctAnswers = submittedAnswers.entrySet()
+                .stream()
+                .mapToInt(entry -> isCorrectAnswer(questionsById, entry.getKey(), entry.getValue()) ? 1 : 0)
+                .sum();
+
+        final Instant finishedAt = roundToDatabasePrecision(Instant.now());
+        final QuizAttempt attempt = QuizAttempt.create(
+                courseId,
+                quiz.id(),
+                userId,
+                quiz.title(),
+                correctAnswers,
+                questionSpec.expectedCount(),
+                finishedAt
+        );
+        final QuizAttemptEntity saved = quizAttemptRepository.save(QuizAttemptEntity.from(attempt));
+
+        return toDto(saved);
+    }
+
+    private Map<Long, Long> normalizeSubmittedAnswers(
+            final List<QuizAttemptAnswerRequest> answers
+    ) {
+        if (answers == null || answers.isEmpty()) {
+            throw new IllegalArgumentException("Quiz attempt must contain at least 1 answer.");
+        }
+
+        final Map<Long, Long> submittedAnswers = new LinkedHashMap<>();
+
+        for (final QuizAttemptAnswerRequest answer : answers) {
+            if (answer == null) {
+                throw new IllegalArgumentException("Quiz attempt answers cannot contain empty values.");
+            }
+
+            if (submittedAnswers.putIfAbsent(answer.questionId(), answer.answerId()) != null) {
+                throw new IllegalArgumentException("Quiz attempt cannot contain duplicate question answers.");
+            }
+        }
+
+        return submittedAnswers;
+    }
+
+    private AttemptQuestionSpec resolveQuestionSpec(
+            final QuizDto quiz,
+            final List<QuestionDto> currentQuestions
+    ) {
+        if (quiz.mode() == QuizMode.MANUAL) {
+            final Set<Long> questionIds = new LinkedHashSet<>(quiz.questionIds());
+            return new AttemptQuestionSpec(questionIds, questionIds.size());
+        }
+
+        if (quiz.mode() == QuizMode.RANDOM) {
+            final int randomCount = Math.min(quiz.randomCount() == null ? currentQuestions.size() : quiz.randomCount(), currentQuestions.size());
+            final Set<Long> allowedQuestionIds = currentQuestions.stream()
+                    .map(QuestionDto::id)
+                    .collect(LinkedHashSet::new, Set::add, Set::addAll);
+
+            return new AttemptQuestionSpec(allowedQuestionIds, randomCount);
+        }
+
+        final Set<Long> categoryIds = quiz.categories()
+                .stream()
+                .map(category -> category.id())
+                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+
+        final Set<Long> questionIds = currentQuestions.stream()
+                .filter(question -> question.categories()
+                        .stream()
+                        .anyMatch(category -> categoryIds.contains(category.id())))
+                .map(QuestionDto::id)
+                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+
+        return new AttemptQuestionSpec(questionIds, questionIds.size());
+    }
+
+    private void assertSubmittedQuestionsMatchQuiz(
+            final QuizDto quiz,
+            final Set<Long> submittedQuestionIds,
+            final AttemptQuestionSpec questionSpec
+    ) {
+        if (submittedQuestionIds.size() != questionSpec.expectedCount()) {
+            throw new IllegalArgumentException("Quiz attempt must answer every quiz question exactly once.");
+        }
+
+        if (quiz.mode() == QuizMode.RANDOM) {
+            if (!questionSpec.allowedQuestionIds().containsAll(submittedQuestionIds)) {
+                throw new IllegalArgumentException("Quiz attempt contains questions outside the selected quiz.");
+            }
+
+            return;
+        }
+
+        if (!submittedQuestionIds.equals(questionSpec.allowedQuestionIds())) {
+            throw new IllegalArgumentException("Quiz attempt contains questions outside the selected quiz.");
+        }
+    }
+
+    private boolean isCorrectAnswer(
+            final Map<Long, QuestionDto> questionsById,
+            final Long questionId,
+            final Long answerId
+    ) {
+        final QuestionDto question = questionsById.get(questionId);
+
+        if (question == null) {
+            throw new IllegalArgumentException("Quiz attempt contains questions outside the selected quiz.");
+        }
+
+        final QuestionAnswerDto selectedAnswer = question.answers()
+                .stream()
+                .filter(answer -> answer.id().equals(answerId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Submitted answer does not belong to the selected question."));
+
+        return selectedAnswer.correct();
+    }
+
+    private QuizAttemptDto toDto(
+            final QuizAttemptEntity entity
+    ) {
+        return new QuizAttemptDto(
+                entity.getId(),
+                entity.getCourseId(),
+                entity.getQuizId(),
+                entity.getUserId(),
+                entity.getQuizTitle(),
+                entity.getCorrectAnswers(),
+                entity.getTotalQuestions(),
+                entity.getFinishedAt()
+        );
+    }
+
+    private Instant roundToDatabasePrecision(
+            final Instant instant
+    ) {
+        long epochSecond = instant.getEpochSecond();
+        long roundedMicros = (instant.getNano() + 500L) / 1_000L;
+
+        if (roundedMicros == 1_000_000L) {
+            epochSecond++;
+            roundedMicros = 0L;
+        }
+
+        return Instant.ofEpochSecond(epochSecond, roundedMicros * 1_000L);
+    }
+
+    private record AttemptQuestionSpec(
+            Set<Long> allowedQuestionIds,
+            int expectedCount
+    ) {
+    }
+}

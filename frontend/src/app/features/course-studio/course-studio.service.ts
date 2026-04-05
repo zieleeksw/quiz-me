@@ -112,6 +112,24 @@ type SaveQuizPayload = {
   categoryIds: number[];
 };
 
+type QuizAttemptApiDto = {
+  id: number;
+  courseId: number;
+  quizId: number;
+  userId: number;
+  quizTitle: string;
+  correctAnswers: number;
+  totalQuestions: number;
+  finishedAt: string;
+};
+
+type SubmitQuizAttemptPayload = {
+  answers: {
+    questionId: number;
+    answerId: number;
+  }[];
+};
+
 export type StudioCategory = {
   id: number;
   name: string;
@@ -192,7 +210,8 @@ export type StudioQuizVersion = {
 };
 
 type AttemptSummary = {
-  id: string;
+  id: number;
+  quizId: number;
   quizTitle: string;
   correctAnswers: number;
   totalQuestions: number;
@@ -240,22 +259,9 @@ export class CourseStudioService {
   private readonly quizzesState = signal<QuizDefinition[]>([]);
   private readonly quizVersionsState = signal<Record<number, StudioQuizVersion[]>>({});
   private readonly quizVersionLoadingState = signal<number | null>(null);
-  private readonly attemptsState = signal<AttemptSummary[]>([
-    {
-      id: this.createId('attempt'),
-      quizTitle: 'Foundations Mock',
-      correctAnswers: 14,
-      totalQuestions: 20,
-      finishedAt: 'Today'
-    },
-    {
-      id: this.createId('attempt'),
-      quizTitle: 'Random Drill',
-      correctAnswers: 9,
-      totalQuestions: 10,
-      finishedAt: 'Yesterday'
-    }
-  ]);
+  private readonly attemptsState = signal<AttemptSummary[]>([]);
+  private readonly attemptSubmittingState = signal(false);
+  private readonly attemptSubmitErrorState = signal<string | null>(null);
   private readonly activeAttemptState = signal<ActiveAttempt | null>(null);
 
   readonly courseTitle = this.courseTitleState.asReadonly();
@@ -266,6 +272,8 @@ export class CourseStudioService {
   readonly loadError = this.loadErrorState.asReadonly();
   readonly versionLoadingQuestionId = this.questionVersionLoadingState.asReadonly();
   readonly versionLoadingQuizId = this.quizVersionLoadingState.asReadonly();
+  readonly isSubmittingAttempt = this.attemptSubmittingState.asReadonly();
+  readonly attemptSubmitError = this.attemptSubmitErrorState.asReadonly();
 
   readonly categories = this.categoriesState.asReadonly();
   readonly questions = this.questionsState.asReadonly();
@@ -333,7 +341,7 @@ export class CourseStudioService {
     return questions[activeAttempt.currentIndex] ?? null;
   });
 
-  readonly currentAnswerIndex = computed(() => {
+  readonly currentAnswerId = computed(() => {
     const activeAttempt = this.activeAttemptState();
     const currentQuestion = this.currentQuestion();
 
@@ -365,29 +373,36 @@ export class CourseStudioService {
     this.quizVersionsState.set({});
     this.questionVersionLoadingState.set(null);
     this.quizVersionLoadingState.set(null);
+    this.attemptsState.set([]);
+    this.attemptSubmittingState.set(false);
+    this.attemptSubmitErrorState.set(null);
     this.activeAttemptState.set(null);
 
     forkJoin({
       categories: this.http.get<CategoryApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/categories`),
       questions: this.http.get<QuestionApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/questions`),
-      quizzes: this.http.get<QuizApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/quizzes`)
+      quizzes: this.http.get<QuizApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/quizzes`),
+      attempts: this.http.get<QuizAttemptApiDto[]>(`${this.apiBaseUrl}/courses/${courseId}/attempts`)
     })
       .pipe(
-        map(({ categories, questions, quizzes }) => ({
+        map(({ categories, questions, quizzes, attempts }) => ({
           categories: categories.map((category) => this.mapCategory(category)),
           questions: questions.map((question) => this.mapQuestion(question)),
-          quizzes: quizzes.map((quiz) => this.mapQuiz(quiz))
+          quizzes: quizzes.map((quiz) => this.mapQuiz(quiz)),
+          attempts: attempts.map((attempt) => this.mapAttempt(attempt))
         })),
-        tap(({ categories, questions, quizzes }) => {
+        tap(({ categories, questions, quizzes, attempts }) => {
           this.categoriesState.set(categories);
           this.questionsState.set(questions);
           this.quizzesState.set(quizzes);
+          this.attemptsState.set(attempts);
           this.loadedState.set(true);
         }),
         catchError(() => {
           this.categoriesState.set([]);
           this.questionsState.set([]);
           this.quizzesState.set([]);
+          this.attemptsState.set([]);
           this.loadErrorState.set('Unable to load this course editor right now.');
           this.loadedState.set(true);
           return of(null);
@@ -733,6 +748,8 @@ export class CourseStudioService {
       finished: false,
       result: null
     });
+    this.attemptSubmitErrorState.set(null);
+    this.attemptSubmittingState.set(false);
   }
 
   startRandomPractice(randomCount: number): void {
@@ -751,9 +768,11 @@ export class CourseStudioService {
       finished: false,
       result: null
     });
+    this.attemptSubmitErrorState.set(null);
+    this.attemptSubmittingState.set(false);
   }
 
-  selectAnswer(optionIndex: number): void {
+  selectAnswer(answerId: number): void {
     const currentQuestion = this.currentQuestion();
 
     if (!currentQuestion) {
@@ -769,7 +788,7 @@ export class CourseStudioService {
         ...activeAttempt,
         answers: {
           ...activeAttempt.answers,
-          [currentQuestion.id]: optionIndex
+          [currentQuestion.id]: answerId
         }
       };
     });
@@ -823,39 +842,67 @@ export class CourseStudioService {
   finishAttempt(): void {
     const activeAttempt = this.activeAttemptState();
 
-    if (!activeAttempt || activeAttempt.finished) {
+    if (!activeAttempt || activeAttempt.finished || this.attemptSubmittingState()) {
       return;
     }
 
     const questions = this.activeAttemptQuestions();
-    const correctAnswers = questions.reduce((accumulator, question) => {
-      return accumulator + Number(activeAttempt.answers[question.id] === question.correctOptionIndex);
-    }, 0);
+    const hasAnsweredEveryQuestion = questions.every((question) => activeAttempt.answers[question.id] !== undefined);
 
-    const result = {
-      correctAnswers,
-      totalQuestions: questions.length
-    };
+    if (!hasAnsweredEveryQuestion) {
+      return;
+    }
 
-    this.activeAttemptState.set({
-      ...activeAttempt,
-      finished: true,
-      result
-    });
+    if (activeAttempt.sourceQuizId === null) {
+      const correctAnswers = questions.reduce((accumulator, question) => {
+        const selectedAnswerId = activeAttempt.answers[question.id];
+        const correctAnswerId = question.options[question.correctOptionIndex]?.id;
+        return accumulator + Number(selectedAnswerId === correctAnswerId);
+      }, 0);
 
-    this.attemptsState.update((attempts) => [
-      {
-        id: this.createId('attempt'),
+      this.completeAttempt({
+        id: Date.now(),
+        quizId: activeAttempt.sourceQuizId ?? -1,
         quizTitle: activeAttempt.quizTitle,
         correctAnswers,
         totalQuestions: questions.length,
-        finishedAt: 'Just now'
-      },
-      ...attempts
-    ]);
+        finishedAt: new Date().toISOString()
+      });
+      return;
+    }
+
+    const courseId = this.requireActiveCourseId();
+    const payload = {
+      answers: questions.map((question) => ({
+        questionId: question.id,
+        answerId: activeAttempt.answers[question.id]
+      }))
+    } satisfies SubmitQuizAttemptPayload;
+
+    this.attemptSubmittingState.set(true);
+    this.attemptSubmitErrorState.set(null);
+
+    this.http
+      .post<QuizAttemptApiDto>(`${this.apiBaseUrl}/courses/${courseId}/quizzes/${activeAttempt.sourceQuizId}/attempts`, payload)
+      .pipe(
+        map((attempt) => this.mapAttempt(attempt)),
+        finalize(() => {
+          this.attemptSubmittingState.set(false);
+        })
+      )
+      .subscribe({
+        next: (attempt) => {
+          this.completeAttempt(attempt);
+        },
+        error: () => {
+          this.attemptSubmitErrorState.set('Unable to save this quiz result right now. Please try again.');
+        }
+      });
   }
 
   clearAttempt(): void {
+    this.attemptSubmittingState.set(false);
+    this.attemptSubmitErrorState.set(null);
     this.activeAttemptState.set(null);
   }
 
@@ -944,6 +991,17 @@ export class CourseStudioService {
     };
   }
 
+  private mapAttempt(attempt: QuizAttemptApiDto): AttemptSummary {
+    return {
+      id: attempt.id,
+      quizId: attempt.quizId,
+      quizTitle: attempt.quizTitle,
+      correctAnswers: attempt.correctAnswers,
+      totalQuestions: attempt.totalQuestions,
+      finishedAt: attempt.finishedAt
+    };
+  }
+
   private resolveQuestionIdsForQuiz(quiz: QuizDefinition): number[] {
     if (quiz.mode === 'manual') {
       const manualQuestionIds = quiz.questionIds.filter((questionId) => this.questionsState().some((question) => question.id === questionId));
@@ -987,7 +1045,22 @@ export class CourseStudioService {
     return courseId;
   }
 
-  private createId(prefix: string): string {
-    return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+  private completeAttempt(attempt: AttemptSummary): void {
+    this.activeAttemptState.update((activeAttempt) => {
+      if (!activeAttempt) {
+        return activeAttempt;
+      }
+
+      return {
+        ...activeAttempt,
+        finished: true,
+        result: {
+          correctAnswers: attempt.correctAnswers,
+          totalQuestions: attempt.totalQuestions
+        }
+      };
+    });
+
+    this.attemptsState.update((attempts) => [attempt, ...attempts]);
   }
 }

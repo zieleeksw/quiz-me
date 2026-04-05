@@ -84,14 +84,18 @@
                 <button
                   class="studio-answer"
                   type="button"
-                  [class.studio-answer--selected]="currentAnswerIndex() === option.originalIndex"
-                  (click)="selectAnswer(option.originalIndex)"
+                  [class.studio-answer--selected]="currentAnswerId() === option.id"
+                  (click)="selectAnswer(option.id)"
                 >
                   <span class="studio-answer__index">{{ answerLabel($index) }}</span>
                   <strong>{{ option.content }}</strong>
                 </button>
               }
             </div>
+
+            @if (studio.attemptSubmitError()) {
+              <p class="studio-meta">{{ studio.attemptSubmitError() }}</p>
+            }
 
             <div class="app-actions-row">
               @if (!isFirstQuestion()) {
@@ -101,7 +105,12 @@
               @if (!isLastQuestion()) {
                 <app-action-button label="Next Question" [routerLink]="null" [disabled]="!canMoveForward()" (clicked)="goToNextQuestion()" />
               } @else {
-                <app-action-button label="Finish Quiz" [routerLink]="null" [disabled]="!canMoveForward()" (clicked)="finishAttempt()" />
+                <app-action-button
+                  [label]="studio.isSubmittingAttempt() ? 'Saving Result...' : 'Finish Quiz'"
+                  [routerLink]="null"
+                  [disabled]="!canFinishAttempt()"
+                  (clicked)="finishAttempt()"
+                />
               }
             </div>
           }
