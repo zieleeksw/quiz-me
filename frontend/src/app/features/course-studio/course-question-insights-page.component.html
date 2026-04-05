@@ -121,7 +121,7 @@
             } @else if (questionAttemptRows().length) {
               <div class="summary-attempts">
                 @for (row of questionAttemptRows(); track row.attemptId) {
-                  <a class="summary-attempt" [routerLink]="attemptReviewLink(row.attemptId)">
+                  <a class="summary-attempt" [routerLink]="attemptReviewLink(row.attemptId)" [queryParams]="{ questionId: activeQuestion()?.id }">
                     <div>
                       <strong>{{ row.quizTitle }}</strong>
                       <p>{{ row.finishedAt | date: 'd MMM yyyy, HH:mm' }}</p>

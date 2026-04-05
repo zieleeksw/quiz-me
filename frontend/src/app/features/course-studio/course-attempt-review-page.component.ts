@@ -25,6 +25,7 @@ export class CourseAttemptReviewPageComponent {
   readonly currentCourse = computed(() => this.coursesCatalogService.findBySlug(this.courseSlug));
   readonly summaryLink = ['/courses', this.courseSlug];
   readonly quizzesLink = ['/courses', this.courseSlug, 'quizzes'];
+  readonly focusedQuestionId = signal<number | null>(this.parseId(this.route.snapshot.queryParamMap.get('questionId')));
 
   readonly reviewState = signal<StudioAttemptReview | null>(null);
   readonly isLoading = signal(true);
@@ -53,6 +54,10 @@ export class CourseAttemptReviewPageComponent {
 
   constructor() {
     this.coursesCatalogService.loadCourses();
+    this.route.queryParamMap.subscribe((queryParamMap) => {
+      this.focusedQuestionId.set(this.parseId(queryParamMap.get('questionId')));
+      this.syncFocusedQuestion();
+    });
 
     effect(() => {
       const course = this.currentCourse();
@@ -68,7 +73,7 @@ export class CourseAttemptReviewPageComponent {
       this.studio.loadAttemptReview(course.id, this.attemptId).subscribe({
         next: (review) => {
           this.reviewState.set(review);
-          this.currentQuestionIndex.set(0);
+          this.syncFocusedQuestion();
           this.isLoading.set(false);
         },
         error: (error: unknown) => {
@@ -96,6 +101,24 @@ export class CourseAttemptReviewPageComponent {
     return question.correctAnswerId === answerId;
   }
 
+  private syncFocusedQuestion(): void {
+    const review = this.reviewState();
+    const focusedQuestionId = this.focusedQuestionId();
+
+    if (!review?.questions.length) {
+      this.currentQuestionIndex.set(0);
+      return;
+    }
+
+    if (focusedQuestionId === null) {
+      this.currentQuestionIndex.set(0);
+      return;
+    }
+
+    const focusedQuestionIndex = review.questions.findIndex((question) => question.questionId === focusedQuestionId);
+    this.currentQuestionIndex.set(focusedQuestionIndex >= 0 ? focusedQuestionIndex : 0);
+  }
+
   private createQuestionPreview(prompt: string): string {
     const compactPrompt = prompt.replace(/\s+/g, ' ').trim();
 
@@ -108,5 +131,10 @@ export class CourseAttemptReviewPageComponent {
 
   private resolveLoadError(error: unknown): string {
     return extractApiMessage(error) ?? (error instanceof HttpErrorResponse ? 'Unable to load this attempt review right now.' : 'Unable to load this attempt review right now.');
+  }
+
+  private parseId(value: string | null): number | null {
+    const parsed = Number(value ?? Number.NaN);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 }
