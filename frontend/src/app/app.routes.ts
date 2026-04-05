@@ -7,6 +7,7 @@ import { HomePageComponent } from './features/home/home-page.component';
 import { DashboardPageComponent } from './features/dashboard/dashboard-page.component';
 import { LoginPageComponent } from './features/auth/login-page.component';
 import { RegisterPageComponent } from './features/auth/register-page.component';
+import { CourseAttemptReviewPageComponent } from './features/course-studio/course-attempt-review-page.component';
 import { CourseSummaryPageComponent } from './features/course-studio/course-summary-page.component';
 import { CourseStudioPageComponent } from './features/course-studio/course-studio-page.component';
 import { CourseStudioEditorPageComponent } from './features/course-studio/course-studio-editor-page.component';
@@ -53,6 +54,11 @@ export const routes: Routes = [
   {
     path: 'courses/:courseSlug/quizzes/:quizId/play',
     component: CourseQuizPlayPageComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'courses/:courseSlug/attempts/:attemptId',
+    component: CourseAttemptReviewPageComponent,
     canActivate: [authGuard]
   },
   {

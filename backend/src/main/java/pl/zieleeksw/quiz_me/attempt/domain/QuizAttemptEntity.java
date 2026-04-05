@@ -30,6 +30,9 @@ class QuizAttemptEntity {
     @Column(name = "total_questions", nullable = false)
     private int totalQuestions;
 
+    @Column(name = "review_snapshot_json", nullable = false, columnDefinition = "TEXT")
+    private String reviewSnapshotJson;
+
     @Column(name = "finished_at", nullable = false)
     private Instant finishedAt;
 
@@ -47,6 +50,7 @@ class QuizAttemptEntity {
         entity.setQuizTitle(attempt.getQuizTitle());
         entity.setCorrectAnswers(attempt.getCorrectAnswers());
         entity.setTotalQuestions(attempt.getTotalQuestions());
+        entity.setReviewSnapshotJson(attempt.getReviewSnapshotJson());
         entity.setFinishedAt(attempt.getFinishedAt());
         return entity;
     }
@@ -105,6 +109,14 @@ class QuizAttemptEntity {
 
     void setTotalQuestions(final int totalQuestions) {
         this.totalQuestions = totalQuestions;
+    }
+
+    String getReviewSnapshotJson() {
+        return reviewSnapshotJson;
+    }
+
+    void setReviewSnapshotJson(final String reviewSnapshotJson) {
+        this.reviewSnapshotJson = reviewSnapshotJson;
     }
 
     Instant getFinishedAt() {

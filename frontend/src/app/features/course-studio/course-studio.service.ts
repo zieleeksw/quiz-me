@@ -123,6 +123,34 @@ type QuizAttemptApiDto = {
   finishedAt: string;
 };
 
+type QuizAttemptDetailApiDto = {
+  id: number;
+  courseId: number;
+  quizId: number;
+  userId: number;
+  quizTitle: string;
+  correctAnswers: number;
+  totalQuestions: number;
+  finishedAt: string;
+  questions: QuizAttemptQuestionReviewApiDto[];
+};
+
+type QuizAttemptQuestionReviewApiDto = {
+  questionId: number;
+  prompt: string;
+  selectedAnswerId: number | null;
+  correctAnswerId: number | null;
+  answeredCorrectly: boolean;
+  answers: QuizAttemptAnswerReviewApiDto[];
+};
+
+type QuizAttemptAnswerReviewApiDto = {
+  id: number;
+  displayOrder: number;
+  content: string;
+  correct: boolean;
+};
+
 type QuizSessionApiDto = {
   id: number;
   courseId: number;
@@ -229,6 +257,9 @@ export type StudioQuizVersion = {
   categories: StudioQuestionCategory[];
 };
 
+export type StudioAttemptReview = AttemptReview;
+export type StudioAttemptReviewQuestion = AttemptReviewQuestion;
+
 type AttemptSummary = {
   id: number;
   quizId: number;
@@ -236,6 +267,32 @@ type AttemptSummary = {
   correctAnswers: number;
   totalQuestions: number;
   finishedAt: string;
+};
+
+type AttemptReview = {
+  id: number;
+  quizId: number;
+  quizTitle: string;
+  correctAnswers: number;
+  totalQuestions: number;
+  finishedAt: string;
+  questions: AttemptReviewQuestion[];
+};
+
+type AttemptReviewQuestion = {
+  questionId: number;
+  prompt: string;
+  selectedAnswerId: number | null;
+  correctAnswerId: number | null;
+  answeredCorrectly: boolean;
+  answers: AttemptReviewAnswer[];
+};
+
+type AttemptReviewAnswer = {
+  id: number;
+  displayOrder: number;
+  content: string;
+  correct: boolean;
 };
 
 type ActiveAttempt = {
@@ -731,6 +788,12 @@ export class CourseStudioService {
     return this.allQuizzes().find((quiz) => quiz.id === quizId) ?? null;
   }
 
+  loadAttemptReview(courseId: number, attemptId: number) {
+    return this.http
+      .get<QuizAttemptDetailApiDto>(`${this.apiBaseUrl}/courses/${courseId}/attempts/${attemptId}`)
+      .pipe(map((attempt) => this.mapAttemptReview(attempt)));
+  }
+
   archiveQuiz(quizId: number) {
     const courseId = this.requireActiveCourseId();
 
@@ -1033,6 +1096,25 @@ export class CourseStudioService {
       correctAnswers: attempt.correctAnswers,
       totalQuestions: attempt.totalQuestions,
       finishedAt: attempt.finishedAt
+    };
+  }
+
+  private mapAttemptReview(attempt: QuizAttemptDetailApiDto): AttemptReview {
+    return {
+      id: attempt.id,
+      quizId: attempt.quizId,
+      quizTitle: attempt.quizTitle,
+      correctAnswers: attempt.correctAnswers,
+      totalQuestions: attempt.totalQuestions,
+      finishedAt: attempt.finishedAt,
+      questions: attempt.questions.map((question) => ({
+        questionId: question.questionId,
+        prompt: question.prompt,
+        selectedAnswerId: question.selectedAnswerId,
+        correctAnswerId: question.correctAnswerId,
+        answeredCorrectly: question.answeredCorrectly,
+        answers: [...question.answers].sort((left, right) => left.displayOrder - right.displayOrder)
+      }))
     };
   }
 

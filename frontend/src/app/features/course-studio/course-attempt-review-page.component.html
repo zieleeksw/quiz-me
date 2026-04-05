@@ -1,0 +1,113 @@
+<main class="workspace-shell studio-shell">
+  <app-workspace-topbar />
+
+  <section class="studio-hero">
+    <div>
+      <p class="app-eyebrow">Attempt Review</p>
+      <h1 class="studio-title">{{ reviewState()?.quizTitle ?? 'Quiz Attempt' }}</h1>
+      <p class="studio-copy">
+        @if (reviewState(); as review) {
+          Score {{ review.correctAnswers }}/{{ review.totalQuestions }} ({{ scorePercent() }}%) on {{ review.finishedAt | date: 'd MMM yyyy, HH:mm' }}.
+        } @else if (isLoading()) {
+          Loading the saved answers and correct choices for this attempt.
+        } @else {
+          Open the course summary to pick a different saved result.
+        }
+      </p>
+    </div>
+
+    <div class="studio-hero__actions">
+      <app-action-button label="Back to Summary" [routerLink]="summaryLink" tone="secondary" />
+      <app-action-button label="Browse Quizzes" [routerLink]="quizzesLink" tone="secondary" />
+    </div>
+  </section>
+
+  @if (isLoading()) {
+    <section class="studio-grid studio-grid--preview">
+      <article class="studio-card">
+        <div class="studio-empty">
+          <h3>Loading attempt review...</h3>
+          <p>Bringing back the submitted answers and the correct solution set.</p>
+        </div>
+      </article>
+    </section>
+  } @else if (loadError()) {
+    <section class="studio-grid studio-grid--preview">
+      <article class="studio-card">
+        <div class="studio-empty">
+          <h3>Attempt review is unavailable.</h3>
+          <p>{{ loadError() }}</p>
+        </div>
+      </article>
+    </section>
+  } @else {
+    @if (reviewState(); as review) {
+      <section class="quiz-play-layout">
+        <aside class="studio-card quiz-play-sidebar">
+          <div class="quiz-play-sidebar__header">
+            <p class="app-eyebrow">Questions</p>
+            <h2>{{ review.correctAnswers }}/{{ review.totalQuestions }} Correct</h2>
+          </div>
+
+          <div class="quiz-play-sidebar__list">
+            @for (item of questionNavItems(); track item.id) {
+              <button
+                class="quiz-play-nav"
+                type="button"
+                [class.quiz-play-nav--active]="item.active"
+                [class.quiz-play-nav--correct]="item.answeredCorrectly"
+                [class.quiz-play-nav--incorrect]="!item.answeredCorrectly"
+                (click)="openQuestion($index)"
+              >
+                <span class="quiz-play-nav__number">Q{{ item.number }}</span>
+                <strong>{{ item.preview }}</strong>
+              </button>
+            }
+          </div>
+        </aside>
+
+        <section class="studio-card quiz-play-main">
+          @if (currentQuestion(); as question) {
+            <div class="studio-card__header">
+              <p class="app-eyebrow">Question {{ currentQuestionIndex() + 1 }}</p>
+              <div class="studio-card__headline">
+                <div>
+                  <h2>{{ question.prompt }}</h2>
+                  <p class="studio-card__hint">Green marks the correct answer. Red shows the answer that was submitted and turned out to be wrong.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="studio-answer-grid">
+              @for (answer of question.answers; track answer.id) {
+                <div
+                  class="studio-answer studio-answer--review"
+                  [class.studio-answer--review-correct]="isCorrectAnswer(question, answer.id)"
+                  [class.studio-answer--review-selected-correct]="isSelectedAnswer(question, answer.id) && isCorrectAnswer(question, answer.id)"
+                  [class.studio-answer--review-selected-wrong]="isSelectedAnswer(question, answer.id) && !isCorrectAnswer(question, answer.id)"
+                >
+                  <span class="studio-answer__index">{{ answerLabel($index) }}</span>
+                  <div class="attempt-review-answer__content">
+                    <strong>{{ answer.content }}</strong>
+                    <div class="attempt-review-answer__meta">
+                      @if (isSelectedAnswer(question, answer.id) && isCorrectAnswer(question, answer.id)) {
+                        <span class="attempt-review-chip attempt-review-chip--success">Your answer</span>
+                        <span class="attempt-review-chip attempt-review-chip--success">Correct</span>
+                      } @else if (isSelectedAnswer(question, answer.id)) {
+                        <span class="attempt-review-chip attempt-review-chip--danger">Your answer</span>
+                      }
+
+                      @if (isCorrectAnswer(question, answer.id) && !isSelectedAnswer(question, answer.id)) {
+                        <span class="attempt-review-chip attempt-review-chip--success">Correct answer</span>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </section>
+      </section>
+    }
+  }
+</main>

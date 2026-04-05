@@ -18,6 +18,8 @@ class QuizAttempt {
 
     private int totalQuestions;
 
+    private String reviewSnapshotJson;
+
     private Instant finishedAt;
 
     static QuizAttempt create(
@@ -27,6 +29,7 @@ class QuizAttempt {
             final String quizTitle,
             final int correctAnswers,
             final int totalQuestions,
+            final String reviewSnapshotJson,
             final Instant finishedAt
     ) {
         final QuizAttempt attempt = new QuizAttempt();
@@ -36,6 +39,7 @@ class QuizAttempt {
         attempt.setQuizTitle(quizTitle);
         attempt.setCorrectAnswers(correctAnswers);
         attempt.setTotalQuestions(totalQuestions);
+        attempt.setReviewSnapshotJson(reviewSnapshotJson);
         attempt.setFinishedAt(finishedAt);
         return attempt;
     }
@@ -94,6 +98,14 @@ class QuizAttempt {
 
     void setTotalQuestions(final int totalQuestions) {
         this.totalQuestions = totalQuestions;
+    }
+
+    String getReviewSnapshotJson() {
+        return reviewSnapshotJson;
+    }
+
+    void setReviewSnapshotJson(final String reviewSnapshotJson) {
+        this.reviewSnapshotJson = reviewSnapshotJson;
     }
 
     Instant getFinishedAt() {

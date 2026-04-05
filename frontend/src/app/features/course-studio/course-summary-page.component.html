@@ -1,0 +1,229 @@
+<main class="workspace-shell studio-shell">
+  <app-workspace-topbar />
+
+  <section class="studio-hero">
+    <div>
+      <p class="app-eyebrow">Summary</p>
+      <h1 class="studio-title">{{ currentCourse()?.title ?? studio.courseTitle() }}</h1>
+      <p class="studio-copy">{{ currentCourse()?.subtitle ?? studio.courseSubtitle() }}</p>
+    </div>
+
+    <div class="studio-hero__actions">
+      <app-action-button label="Back to Courses" routerLink="/courses" tone="secondary" />
+      <app-action-button label="Browse Quizzes" [routerLink]="quizzesLink" tone="secondary" />
+      <app-action-button label="Settings" [routerLink]="editorLink" />
+    </div>
+  </section>
+
+  <section class="studio-stats">
+    <article class="studio-stat-card">
+      <span class="studio-stat-card__label">Question Bank</span>
+      <strong>{{ studio.totalQuestions() }}</strong>
+      <p>All questions currently available inside this course bank.</p>
+    </article>
+
+    <article class="studio-stat-card">
+      <span class="studio-stat-card__label">Published Quizzes</span>
+      <strong>{{ studio.totalQuizzes() }}</strong>
+      <p>Only active learner-facing quiz variants are counted here.</p>
+    </article>
+
+    <article class="studio-stat-card">
+      <span class="studio-stat-card__label">Average Score</span>
+      <strong>{{ studio.averageScore() }}%</strong>
+      <p>Calculated from every completed attempt stored for this course.</p>
+    </article>
+
+    <article class="studio-stat-card">
+      <span class="studio-stat-card__label">Attempts</span>
+      <strong>{{ studio.totalAttempts() }}</strong>
+      <p>Finished runs that already contribute to the course performance story.</p>
+    </article>
+  </section>
+
+  <section class="summary-grid">
+    <article class="studio-card summary-card">
+      <div class="studio-card__header">
+        <p class="app-eyebrow">Quiz Mix</p>
+        <div class="studio-card__headline">
+          <div>
+            <h2>How The Quiz Catalog Is Split</h2>
+            <p class="studio-card__hint">A quick pie-style view of how many active quiz variants are manual, random, or category-based.</p>
+          </div>
+        </div>
+      </div>
+
+      @if (quizFormatSegments().length) {
+        <div class="summary-chart-block">
+          <div class="summary-donut" [style.background]="quizFormatChartBackground()">
+            <div class="summary-donut__center">
+              <strong>{{ studio.totalQuizzes() }}</strong>
+              <span>Active quizzes</span>
+            </div>
+          </div>
+
+          <div class="summary-legend">
+            @for (segment of quizFormatSegments(); track segment.label) {
+              <div class="summary-legend__item">
+                <span class="summary-legend__swatch" [style.background]="segment.color"></span>
+                <div>
+                  <strong>{{ segment.label }} - {{ segment.percent }}%</strong>
+                  <p>{{ segment.value }} quiz{{ segment.value === 1 ? '' : 'zes' }}. {{ segment.note }}</p>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      } @else {
+        <div class="studio-empty">
+          <h3>No active quizzes yet.</h3>
+          <p>Add a quiz first and this split will immediately show how the catalog is balanced.</p>
+        </div>
+      }
+    </article>
+
+    <article class="studio-card summary-card">
+      <div class="studio-card__header">
+        <p class="app-eyebrow">Coverage</p>
+        <div class="studio-card__headline">
+          <div>
+            <h2>Where Quiz Variants Pull From</h2>
+            <p class="studio-card__hint">Manual and random variants count as whole-course coverage, while category quizzes are split across their selected categories.</p>
+          </div>
+        </div>
+      </div>
+
+      @if (quizCoverageSegments().length) {
+        <div class="summary-chart-block">
+          <div class="summary-donut summary-donut--compact" [style.background]="quizCoverageChartBackground()">
+            <div class="summary-donut__center">
+              <strong>{{ studio.totalQuizzes() }}</strong>
+              <span>Quiz variants</span>
+            </div>
+          </div>
+
+          <div class="summary-legend">
+            @for (segment of quizCoverageSegments(); track segment.label) {
+              <div class="summary-legend__item">
+                <span class="summary-legend__swatch" [style.background]="segment.color"></span>
+                <div>
+                  <strong>{{ segment.label }} - {{ segment.percent }}%</strong>
+                  <p>{{ segment.note }}</p>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      } @else {
+        <div class="studio-empty">
+          <h3>No coverage data yet.</h3>
+          <p>Once quizzes exist, this card will show whether the course relies on whole-bank variants or category-focused ones.</p>
+        </div>
+      }
+    </article>
+
+    <article class="studio-card summary-card">
+      <div class="studio-card__header">
+        <p class="app-eyebrow">Categories</p>
+        <div class="studio-card__headline">
+          <div>
+            <h2>Question Bank By Category</h2>
+            <p class="studio-card__hint">A compact view of which categories currently carry the biggest share of the question bank.</p>
+          </div>
+        </div>
+      </div>
+
+      @if (questionCategoryBars().length) {
+        <div class="summary-bars">
+          @for (category of questionCategoryBars(); track category.id) {
+            <div class="summary-bar">
+              <div class="summary-bar__meta">
+                <strong>{{ category.name }}</strong>
+                <span>{{ category.questionCount }} question{{ category.questionCount === 1 ? '' : 's' }}</span>
+              </div>
+              <div class="summary-bar__track">
+                <span class="summary-bar__fill" [style.width.%]="category.fillPercent"></span>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="studio-empty">
+          <h3>No category coverage yet.</h3>
+          <p>As soon as questions are tagged, this area will show which topics dominate the course bank.</p>
+        </div>
+      }
+    </article>
+
+    <article class="studio-card summary-card">
+      <div class="studio-card__header">
+        <p class="app-eyebrow">Attempts</p>
+        <div class="studio-card__headline">
+          <div>
+            <h2>Recent Quiz Activity</h2>
+            <p class="studio-card__hint">Fresh attempt results plus a quick read on how much is completed versus still in progress.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary-pulse">
+        <article class="summary-pulse__item">
+          <span>In Progress</span>
+          <strong>{{ inProgressSessions() }}</strong>
+          <p>Open sessions that can still be resumed from another device.</p>
+        </article>
+
+        <article class="summary-pulse__item">
+          <span>Best Score</span>
+          <strong>{{ bestAttemptScore() }}%</strong>
+          <p>The strongest completed result recorded for this course so far.</p>
+        </article>
+
+        <article class="summary-pulse__item">
+          <span>Avg Questions / Quiz</span>
+          <strong>{{ averageQuestionsPerQuiz() }}</strong>
+          <p>Average playable size across all currently active quiz variants.</p>
+        </article>
+
+        <article class="summary-pulse__item">
+          <span>Completion Share</span>
+          <strong>{{ completionShare() }}%</strong>
+          <p>Share of known quiz runs that are already finished instead of still being resumed.</p>
+        </article>
+      </div>
+
+      @if (latestAttempt(); as latestAttempt) {
+        <div class="summary-highlight">
+          <strong>Latest completed attempt</strong>
+          <p>
+            {{ latestAttempt.quizTitle }} finished with {{ latestAttempt.correctAnswers }}/{{ latestAttempt.totalQuestions }}
+            on {{ latestAttempt.finishedAt | date: 'd MMM yyyy, HH:mm' }}.
+          </p>
+          <div class="summary-highlight__actions">
+            <app-action-button label="Open Review" [routerLink]="attemptReviewLink(latestAttempt.id)" size="compact" tone="secondary" />
+          </div>
+        </div>
+      }
+
+      @if (recentAttempts().length) {
+        <div class="summary-attempts">
+          @for (attempt of recentAttempts(); track attempt.id) {
+            <a class="summary-attempt" [routerLink]="attemptReviewLink(attempt.id)">
+              <div>
+                <strong>{{ attempt.quizTitle }}</strong>
+                <p>{{ attempt.correctAnswers }}/{{ attempt.totalQuestions }} correct - {{ attempt.finishedAt | date: 'd MMM yyyy, HH:mm' }}</p>
+              </div>
+
+              <span class="summary-attempt__score">{{ attempt.scorePercent }}%</span>
+            </a>
+          }
+        </div>
+      } @else {
+        <div class="studio-empty">
+          <h3>No attempts yet.</h3>
+          <p>Once learners start playing quizzes, this summary will show the most recent results here.</p>
+        </div>
+      }
+    </article>
+  </section>
+</main>

@@ -83,6 +83,18 @@ class QuizAttemptController {
         return quizAttemptFacade.fetchCourseAttempts(courseId, currentUser.id());
     }
 
+    @GetMapping("/attempts/{attemptId}")
+    @PreAuthorize("isAuthenticated()")
+    QuizAttemptDetailDto fetchAttemptDetail(
+            final Authentication authentication,
+            @PathVariable final Long courseId,
+            @PathVariable final Long attemptId
+    ) {
+        final UserDto currentUser = userFacade.findUserByEmailOrThrow(authentication.getName());
+
+        return quizAttemptFacade.fetchAttemptDetail(courseId, attemptId, currentUser.id());
+    }
+
     @PostMapping("/quizzes/{quizId}/attempts")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("isAuthenticated()")

@@ -5,7 +5,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.transaction.annotation.Transactional;
 import pl.zieleeksw.quiz_me.attempt.QuizAttemptAnswerRequest;
+import pl.zieleeksw.quiz_me.attempt.QuizAttemptAnswerReviewDto;
+import pl.zieleeksw.quiz_me.attempt.QuizAttemptDetailDto;
 import pl.zieleeksw.quiz_me.attempt.QuizAttemptDto;
+import pl.zieleeksw.quiz_me.attempt.QuizAttemptQuestionReviewDto;
 import pl.zieleeksw.quiz_me.course.domain.CourseFacade;
 import pl.zieleeksw.quiz_me.question.QuestionAnswerDto;
 import pl.zieleeksw.quiz_me.question.QuestionDto;
@@ -16,6 +19,7 @@ import pl.zieleeksw.quiz_me.quiz.domain.QuizFacade;
 import pl.zieleeksw.quiz_me.quiz.domain.QuizNotFoundException;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -60,6 +64,19 @@ public class QuizAttemptFacade {
                 .toList();
     }
 
+    public QuizAttemptDetailDto fetchAttemptDetail(
+            final Long courseId,
+            final Long attemptId,
+            final Long userId
+    ) {
+        courseFacade.findCourseByIdOrThrow(courseId);
+
+        final QuizAttemptEntity entity = quizAttemptRepository.findByIdAndCourseIdAndUserId(attemptId, courseId, userId)
+                .orElseThrow(() -> QuizAttemptNotFoundException.forId(attemptId));
+
+        return toDetailDto(entity);
+    }
+
     @Transactional
     public QuizAttemptDto createAttempt(
             final Long courseId,
@@ -97,6 +114,10 @@ public class QuizAttemptFacade {
                 .stream()
                 .mapToInt(entry -> isCorrectAnswer(questionsById, entry.getKey(), entry.getValue()) ? 1 : 0)
                 .sum();
+        final List<Long> orderedQuestionIds = activeSession
+                .map(session -> deserializeQuestionIds(session.getQuestionIdsJson()))
+                .orElseGet(() -> new ArrayList<>(submittedAnswers.keySet()));
+        final String reviewSnapshotJson = serializeReviewSnapshot(buildReviewSnapshot(orderedQuestionIds, submittedAnswers, questionsById));
 
         final Instant finishedAt = roundToDatabasePrecision(Instant.now());
         final QuizAttempt attempt = QuizAttempt.create(
@@ -106,6 +127,7 @@ public class QuizAttemptFacade {
                 activeSession.map(QuizSessionEntity::getQuizTitle).orElse(quiz.title()),
                 correctAnswers,
                 questionSpec.expectedCount(),
+                reviewSnapshotJson,
                 finishedAt
         );
         final QuizAttemptEntity saved = quizAttemptRepository.save(QuizAttemptEntity.from(attempt));
@@ -226,6 +248,105 @@ public class QuizAttemptFacade {
         );
     }
 
+    private QuizAttemptDetailDto toDetailDto(
+            final QuizAttemptEntity entity
+    ) {
+        return new QuizAttemptDetailDto(
+                entity.getId(),
+                entity.getCourseId(),
+                entity.getQuizId(),
+                entity.getUserId(),
+                entity.getQuizTitle(),
+                entity.getCorrectAnswers(),
+                entity.getTotalQuestions(),
+                entity.getFinishedAt(),
+                deserializeReviewSnapshot(entity.getReviewSnapshotJson()).stream()
+                        .map(this::toQuestionReviewDto)
+                        .toList()
+        );
+    }
+
+    private List<ReviewQuestionSnapshot> buildReviewSnapshot(
+            final List<Long> orderedQuestionIds,
+            final Map<Long, Long> submittedAnswers,
+            final Map<Long, QuestionDto> questionsById
+    ) {
+        return orderedQuestionIds.stream()
+                .filter(submittedAnswers::containsKey)
+                .map(questionId -> {
+                    final QuestionDto question = questionsById.get(questionId);
+
+                    if (question == null) {
+                        throw new IllegalArgumentException("Quiz attempt contains questions outside the selected quiz.");
+                    }
+
+                    final Long selectedAnswerId = submittedAnswers.get(questionId);
+                    final Long correctAnswerId = question.answers().stream()
+                            .filter(QuestionAnswerDto::correct)
+                            .map(QuestionAnswerDto::id)
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalArgumentException("Question must have a correct answer."));
+
+                    return new ReviewQuestionSnapshot(
+                            question.id(),
+                            question.prompt(),
+                            selectedAnswerId,
+                            correctAnswerId,
+                            selectedAnswerId.equals(correctAnswerId),
+                            question.answers().stream()
+                                    .map(answer -> new ReviewAnswerSnapshot(
+                                            answer.id(),
+                                            answer.displayOrder(),
+                                            answer.content(),
+                                            answer.correct()
+                                    ))
+                                    .toList()
+                    );
+                })
+                .toList();
+    }
+
+    private String serializeReviewSnapshot(
+            final List<ReviewQuestionSnapshot> snapshot
+    ) {
+        try {
+            return objectMapper.writeValueAsString(snapshot);
+        } catch (final JsonProcessingException ex) {
+            throw new IllegalStateException("Unable to serialize quiz attempt review snapshot.", ex);
+        }
+    }
+
+    private List<ReviewQuestionSnapshot> deserializeReviewSnapshot(
+            final String reviewSnapshotJson
+    ) {
+        try {
+            return objectMapper.readValue(reviewSnapshotJson, new TypeReference<>() {
+            });
+        } catch (final JsonProcessingException ex) {
+            throw new IllegalStateException("Unable to deserialize quiz attempt review snapshot.", ex);
+        }
+    }
+
+    private QuizAttemptQuestionReviewDto toQuestionReviewDto(
+            final ReviewQuestionSnapshot snapshot
+    ) {
+        return new QuizAttemptQuestionReviewDto(
+                snapshot.questionId(),
+                snapshot.prompt(),
+                snapshot.selectedAnswerId(),
+                snapshot.correctAnswerId(),
+                snapshot.answeredCorrectly(),
+                snapshot.answers().stream()
+                        .map(answer -> new QuizAttemptAnswerReviewDto(
+                                answer.id(),
+                                answer.displayOrder(),
+                                answer.content(),
+                                answer.correct()
+                        ))
+                        .toList()
+        );
+    }
+
     private Instant roundToDatabasePrecision(
             final Instant instant
     ) {
@@ -254,6 +375,24 @@ public class QuizAttemptFacade {
     private record AttemptQuestionSpec(
             Set<Long> allowedQuestionIds,
             int expectedCount
+    ) {
+    }
+
+    private record ReviewQuestionSnapshot(
+            Long questionId,
+            String prompt,
+            Long selectedAnswerId,
+            Long correctAnswerId,
+            boolean answeredCorrectly,
+            List<ReviewAnswerSnapshot> answers
+    ) {
+    }
+
+    private record ReviewAnswerSnapshot(
+            Long id,
+            int displayOrder,
+            String content,
+            boolean correct
     ) {
     }
 }

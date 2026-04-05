@@ -108,6 +108,73 @@ class ShouldCreateQuizAttemptIntegrationTest extends BaseIntegration {
     }
 
     @Test
+    void shouldFetchAttemptReviewWithSubmittedAndCorrectAnswers() throws Exception {
+        final var learnerAuthentication = authenticationApi.registerAndLogin();
+        final TestCourseDto course = createCourse(learnerAuthentication.accessToken().value(), new TestCreateCourseRequest(
+                "Spring MVC Review",
+                "A course focused on reviewing submitted quiz answers in detail."
+        ));
+        final TestCategoryDto webCategory = createCategory(course.id(), learnerAuthentication.accessToken().value(), "Web");
+        final TestQuestionDto questionOne = createQuestion(course.id(), learnerAuthentication.accessToken().value(), new TestCreateQuestionRequest(
+                "Which servlet handles Spring MVC request dispatching?",
+                List.of(
+                        new TestQuestionAnswerRequest("DispatcherServlet", true),
+                        new TestQuestionAnswerRequest("EntityManager", false)
+                ),
+                List.of(webCategory.id())
+        ));
+        final TestQuestionDto questionTwo = createQuestion(course.id(), learnerAuthentication.accessToken().value(), new TestCreateQuestionRequest(
+                "Which annotation usually maps HTTP GET requests?",
+                List.of(
+                        new TestQuestionAnswerRequest("@GetMapping", true),
+                        new TestQuestionAnswerRequest("@Transactional", false)
+                ),
+                List.of(webCategory.id())
+        ));
+        final TestQuizDto quiz = createQuiz(course.id(), learnerAuthentication.accessToken().value(), new TestCreateQuizRequest(
+                "MVC Review Drill",
+                "manual",
+                null,
+                "fixed",
+                "fixed",
+                List.of(questionOne.id(), questionTwo.id()),
+                List.of()
+        ));
+
+        final TestQuizAttemptDto createdAttempt = readResponse(
+                mockMvc.perform(post("/courses/{courseId}/quizzes/{quizId}/attempts", course.id(), quiz.id())
+                        .header(AUTHORIZATION_HEADER, bearerToken(learnerAuthentication.accessToken().value()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new TestSubmitQuizAttemptRequest(List.of(
+                                answer(questionOne, "DispatcherServlet"),
+                                answer(questionTwo, "@Transactional")
+                        ))))),
+                TestQuizAttemptDto.class
+        );
+
+        final ResultActions fetchAttemptDetailResult = mockMvc.perform(get("/courses/{courseId}/attempts/{attemptId}", course.id(), createdAttempt.id())
+                .header(AUTHORIZATION_HEADER, bearerToken(learnerAuthentication.accessToken().value()))
+                .contentType(MediaType.APPLICATION_JSON));
+
+        final TestQuizAttemptDetailDto attemptDetail = readResponse(fetchAttemptDetailResult, TestQuizAttemptDetailDto.class);
+
+        itShouldReturnOkStatus(fetchAttemptDetailResult);
+        assertThat(attemptDetail.id()).isEqualTo(createdAttempt.id());
+        assertThat(attemptDetail.correctAnswers()).isEqualTo(1);
+        assertThat(attemptDetail.questions()).hasSize(2);
+        assertThat(attemptDetail.questions().get(0).questionId()).isEqualTo(questionOne.id());
+        assertThat(attemptDetail.questions().get(0).selectedAnswerId()).isEqualTo(answerId(questionOne, "DispatcherServlet"));
+        assertThat(attemptDetail.questions().get(0).correctAnswerId()).isEqualTo(answerId(questionOne, "DispatcherServlet"));
+        assertThat(attemptDetail.questions().get(0).answeredCorrectly()).isTrue();
+        assertThat(attemptDetail.questions().get(1).questionId()).isEqualTo(questionTwo.id());
+        assertThat(attemptDetail.questions().get(1).selectedAnswerId()).isEqualTo(answerId(questionTwo, "@Transactional"));
+        assertThat(attemptDetail.questions().get(1).correctAnswerId()).isEqualTo(answerId(questionTwo, "@GetMapping"));
+        assertThat(attemptDetail.questions().get(1).answeredCorrectly()).isFalse();
+        assertThat(attemptDetail.questions().get(1).answers()).extracting(TestQuizAttemptAnswerReviewDto::content)
+                .containsExactly("@GetMapping", "@Transactional");
+    }
+
+    @Test
     void shouldReturnOnlyAttemptsOfCurrentUserForTheCourse() throws Exception {
         final var ownerAuthentication = authenticationApi.registerAndLogin();
         final var secondLearnerAuthentication = authenticationApi.registerAndLogin();
@@ -220,6 +287,18 @@ class ShouldCreateQuizAttemptIntegrationTest extends BaseIntegration {
                 .orElseThrow();
 
         return new TestQuizAttemptAnswerRequest(question.id(), selectedAnswer.id());
+    }
+
+    private Long answerId(
+            final TestQuestionDto question,
+            final String answerContent
+    ) {
+        return question.answers()
+                .stream()
+                .filter(answer -> answer.content().equals(answerContent))
+                .findFirst()
+                .orElseThrow()
+                .id();
     }
 
     private TestCategoryDto createCategory(

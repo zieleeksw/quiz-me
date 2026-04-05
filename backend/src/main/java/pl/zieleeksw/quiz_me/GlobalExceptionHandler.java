@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import pl.zieleeksw.quiz_me.auth.domain.InvalidRefreshTokenException;
+import pl.zieleeksw.quiz_me.attempt.domain.QuizAttemptNotFoundException;
 import pl.zieleeksw.quiz_me.attempt.domain.QuizSessionNotFoundException;
 import pl.zieleeksw.quiz_me.category.domain.CategoryNotFoundException;
 import pl.zieleeksw.quiz_me.course.domain.CourseNotFoundException;
@@ -106,6 +107,18 @@ class GlobalExceptionHandler {
     @ExceptionHandler(QuizSessionNotFoundException.class)
     ResponseEntity<RuntimeExceptionDto> handleQuizSessionNotFoundException(
             final QuizSessionNotFoundException ex) {
+        final RuntimeExceptionDto response = new RuntimeExceptionDto(
+                ex.getClass().getSimpleName(),
+                ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(response);
+    }
+
+    @ExceptionHandler(QuizAttemptNotFoundException.class)
+    ResponseEntity<RuntimeExceptionDto> handleQuizAttemptNotFoundException(
+            final QuizAttemptNotFoundException ex) {
         final RuntimeExceptionDto response = new RuntimeExceptionDto(
                 ex.getClass().getSimpleName(),
                 ex.getMessage());
