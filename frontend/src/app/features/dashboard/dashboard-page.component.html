@@ -121,8 +121,6 @@
             </a>
 
             <div class="course-card__footer">
-              <app-action-button label="Open Summary" [routerLink]="resolveCourseLink(course)" tone="secondary" size="compact" />
-
               @if (canEditCourse(course)) {
                 <app-action-button label="Edit Course" size="compact" (clicked)="openEditEditor(course)" />
               }

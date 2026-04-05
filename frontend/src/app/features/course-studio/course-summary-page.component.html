@@ -92,20 +92,6 @@
           <app-action-button label="Open Question Stats" [routerLink]="questionInsightsLink" size="compact" tone="secondary" />
         </div>
       </div>
-
-      <div class="summary-bars">
-        @for (category of questionCategoryBars().slice(0, 4); track category.id) {
-          <div class="summary-bar">
-            <div class="summary-bar__meta">
-              <strong>{{ category.name }}</strong>
-              <span>{{ category.questionCount }} question{{ category.questionCount === 1 ? '' : 's' }}</span>
-            </div>
-            <div class="summary-bar__track">
-              <span class="summary-bar__fill" [style.width.%]="category.fillPercent"></span>
-            </div>
-          </div>
-        }
-      </div>
     </article>
 
     <article class="studio-card summary-card">
@@ -258,21 +244,8 @@
         </article>
       </div>
 
-      @if (latestAttempt(); as latestAttempt) {
-        <div class="summary-highlight">
-          <strong>Latest completed attempt</strong>
-          <p>
-            {{ latestAttempt.quizTitle }} finished with {{ latestAttempt.correctAnswers }}/{{ latestAttempt.totalQuestions }}
-            on {{ latestAttempt.finishedAt | date: 'd MMM yyyy, HH:mm' }}.
-          </p>
-          <div class="summary-highlight__actions">
-            <app-action-button label="Open Review" [routerLink]="attemptReviewLink(latestAttempt.id)" size="compact" tone="secondary" />
-          </div>
-        </div>
-      }
-
       @if (recentAttempts().length) {
-        <div class="summary-attempts">
+        <div class="summary-attempts summary-attempts--scroll">
           @for (attempt of recentAttempts(); track attempt.id) {
             <a class="summary-attempt" [routerLink]="attemptReviewLink(attempt.id)">
               <div>

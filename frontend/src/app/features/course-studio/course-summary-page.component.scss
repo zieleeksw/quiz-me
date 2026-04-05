@@ -172,6 +172,12 @@
   gap: 0.85rem;
 }
 
+.summary-attempts--scroll {
+  max-height: 30rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
 .summary-legend__item,
 .summary-attempt {
   display: flex;

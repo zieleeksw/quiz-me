@@ -168,7 +168,6 @@ export class CourseSummaryPageComponent {
 
     return Math.round((completedAttempts / totalRuns) * 100);
   });
-  readonly latestAttempt = computed(() => this.recentAttempts()[0] ?? null);
   readonly quizFormatChartBackground = computed(() => this.buildConicGradient(this.quizFormatSegments()));
   readonly quizCoverageChartBackground = computed(() => this.buildConicGradient(this.quizCoverageSegments()));
 
