@@ -233,16 +233,13 @@
             <article class="studio-item studio-item--compact studio-item--quiz-preview">
               <div class="studio-item__top">
                 <div class="studio-item__content">
-                  <div class="studio-inline-badges">
-                    <span class="studio-badge studio-badge--quiz">
-                      {{ quiz.mode === 'manual' ? 'Manual quiz' : quiz.mode === 'random' ? 'Random quiz' : 'Category quiz' }}
-                    </span>
-                    <span class="studio-badge" [class.studio-badge--archived]="!quiz.active">{{ quizStatusLabel(quiz.active) }}</span>
-                    @for (categoryName of quiz.previewCategoryNames; track categoryName) {
-                      <span class="studio-badge">{{ categoryName }}</span>
-                    }
+                  <div class="studio-title-row">
+                    <h3>{{ quiz.title }}</h3>
+                    <span class="studio-badge studio-badge--quiz">{{ quizTypeLabel(quiz.mode) }}</span>
                   </div>
-                  <h3>{{ quiz.title }}</h3>
+                  <div class="studio-inline-badges">
+                    <span class="studio-badge" [class.studio-badge--archived]="!quiz.active">{{ quizStatusLabel(quiz.active) }}</span>
+                  </div>
                   <p class="studio-meta">{{ quizSummary(quiz) }}</p>
                   <p class="studio-meta">{{ quizOrderSummary(quiz) }}</p>
                   @if (!quiz.active) {

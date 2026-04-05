@@ -54,11 +54,11 @@
         @for (quiz of studio.quizzes(); track quiz.id) {
           <article class="studio-item studio-item--quiz">
             <div class="studio-item__top">
-              <div>
-                <span class="studio-badge studio-badge--quiz">
-                  {{ quizAudienceLabel(quiz.mode) }}
-                </span>
-                <h3>{{ quiz.title }}</h3>
+              <div class="studio-item__content">
+                <div class="studio-title-row">
+                  <h3>{{ quiz.title }}</h3>
+                  <span class="studio-badge studio-badge--quiz">{{ quizTypeLabel(quiz.mode) }}</span>
+                </div>
               </div>
             </div>
 
@@ -66,14 +66,6 @@
               <p class="studio-meta">{{ quizSummary(quiz) }}</p>
               <p class="studio-meta">{{ quizOrderSummary(quiz) }}</p>
             </div>
-
-            @if (quiz.mode === 'category' && quiz.categories.length) {
-              <div class="studio-inline-badges">
-                @for (category of quiz.categories; track category.id) {
-                  <span class="studio-badge">{{ category.name }}</span>
-                }
-              </div>
-            }
 
             <div class="app-actions-row">
               <app-action-button [label]="quizActionLabel(quiz.id)" [routerLink]="quizPlayLink(quiz.id)" tone="secondary" />

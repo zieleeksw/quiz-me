@@ -33,18 +33,6 @@ export class CourseStudioPageComponent {
     });
   }
 
-  quizAudienceLabel(mode: 'manual' | 'random' | 'category'): string {
-    if (mode === 'manual') {
-      return 'Guided quiz';
-    }
-
-    if (mode === 'random') {
-      return 'Random quiz';
-    }
-
-    return 'Category quiz';
-  }
-
   quizSummary(quiz: {
     mode: 'manual' | 'random' | 'category';
     resolvedQuestionCount: number;
@@ -71,6 +59,18 @@ export class CourseStudioPageComponent {
 
   quizOrderSummary(quiz: { questionOrder: 'fixed' | 'random'; answerOrder: 'fixed' | 'random' }): string {
     return `${this.describeQuestionOrder(quiz.questionOrder)} and ${this.describeAnswerOrder(quiz.answerOrder)}.`;
+  }
+
+  quizTypeLabel(mode: 'manual' | 'random' | 'category'): string {
+    if (mode === 'manual') {
+      return 'Manual';
+    }
+
+    if (mode === 'random') {
+      return 'Random';
+    }
+
+    return 'Category';
   }
 
   quizPlayLink(quizId: number): string[] {

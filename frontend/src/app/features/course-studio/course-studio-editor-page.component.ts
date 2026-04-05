@@ -72,12 +72,9 @@ export class CourseStudioEditorPageComponent {
             : questions
                 .filter((question) => question.categories.some((category) => quiz.categories.some((quizCategory) => quizCategory.id === category.id)))
                 .slice(0, 3);
-      const previewCategoryNames = quiz.mode === 'category' ? quiz.categories.map((category) => category.name) : [];
-
       return {
         ...quiz,
-        previewQuestions,
-        previewCategoryNames
+        previewQuestions
       };
     });
   });
@@ -216,6 +213,18 @@ export class CourseStudioEditorPageComponent {
 
   quizOrderSummary(quiz: { questionOrder: 'fixed' | 'random'; answerOrder: 'fixed' | 'random' }): string {
     return `${this.describeQuestionOrder(quiz.questionOrder)} and ${this.describeAnswerOrder(quiz.answerOrder)}.`;
+  }
+
+  quizTypeLabel(mode: 'manual' | 'random' | 'category'): string {
+    if (mode === 'manual') {
+      return 'Manual';
+    }
+
+    if (mode === 'random') {
+      return 'Random';
+    }
+
+    return 'Category';
   }
 
   quizStatusLabel(active: boolean): string {
