@@ -113,8 +113,14 @@ export class CourseQuizPlayPageComponent {
 
     effect(() => {
       const playSessionKey = this.playSessionKey();
+      const activeAttempt = this.activeAttempt();
 
       if (!playSessionKey || !this.studio.isLoaded()) {
+        return;
+      }
+
+      if (activeAttempt && !activeAttempt.finished && activeAttempt.sourceQuizId === this.quizId) {
+        this.startedAttemptKeyState.set(playSessionKey);
         return;
       }
 
@@ -164,7 +170,10 @@ export class CourseQuizPlayPageComponent {
   }
 
   returnToCourse(): void {
-    this.studio.clearAttempt();
+    if (this.activeAttempt()?.finished) {
+      this.studio.clearAttempt();
+    }
+
     void this.router.navigate(['/courses', this.courseSlug]);
   }
 

@@ -77,6 +77,10 @@ export class CourseStudioPageComponent {
     return ['/courses', this.courseSlug, 'quizzes', String(quizId), 'play'];
   }
 
+  quizActionLabel(quizId: number): string {
+    return this.studio.hasResumableAttemptForQuiz(quizId) ? 'Resume Quiz' : 'Start Quiz';
+  }
+
   private describeQuestionOrder(order: 'fixed' | 'random'): string {
     return order === 'random' ? 'Questions are shown in random order' : 'Questions stay in the saved order';
   }

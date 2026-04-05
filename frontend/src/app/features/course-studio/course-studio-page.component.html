@@ -76,7 +76,7 @@
             }
 
             <div class="app-actions-row">
-              <app-action-button label="Start Quiz" [routerLink]="quizPlayLink(quiz.id)" tone="secondary" />
+              <app-action-button [label]="quizActionLabel(quiz.id)" [routerLink]="quizPlayLink(quiz.id)" tone="secondary" />
             </div>
           </article>
         } @empty {

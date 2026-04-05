@@ -6,6 +6,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import pl.zieleeksw.quiz_me.attempt.domain.QuizAttemptFacade;
+import pl.zieleeksw.quiz_me.attempt.domain.QuizSessionFacade;
 import pl.zieleeksw.quiz_me.user.UserDto;
 import pl.zieleeksw.quiz_me.user.domain.UserFacade;
 
@@ -16,14 +17,59 @@ import java.util.List;
 class QuizAttemptController {
 
     private final QuizAttemptFacade quizAttemptFacade;
+    private final QuizSessionFacade quizSessionFacade;
     private final UserFacade userFacade;
 
     QuizAttemptController(
             final QuizAttemptFacade quizAttemptFacade,
+            final QuizSessionFacade quizSessionFacade,
             final UserFacade userFacade
     ) {
         this.quizAttemptFacade = quizAttemptFacade;
+        this.quizSessionFacade = quizSessionFacade;
         this.userFacade = userFacade;
+    }
+
+    @GetMapping("/sessions")
+    @PreAuthorize("isAuthenticated()")
+    List<QuizSessionDto> fetchCourseSessions(
+            final Authentication authentication,
+            @PathVariable final Long courseId
+    ) {
+        final UserDto currentUser = userFacade.findUserByEmailOrThrow(authentication.getName());
+
+        return quizSessionFacade.fetchCourseSessions(courseId, currentUser.id());
+    }
+
+    @PostMapping("/quizzes/{quizId}/session")
+    @PreAuthorize("isAuthenticated()")
+    QuizSessionDto createOrResumeQuizSession(
+            final Authentication authentication,
+            @PathVariable final Long courseId,
+            @PathVariable final Long quizId
+    ) {
+        final UserDto currentUser = userFacade.findUserByEmailOrThrow(authentication.getName());
+
+        return quizSessionFacade.createOrResumeSession(courseId, quizId, currentUser.id());
+    }
+
+    @PutMapping("/quizzes/{quizId}/session")
+    @PreAuthorize("isAuthenticated()")
+    QuizSessionDto updateQuizSession(
+            final Authentication authentication,
+            @PathVariable final Long courseId,
+            @PathVariable final Long quizId,
+            @RequestBody @Valid final UpdateQuizSessionRequest request
+    ) {
+        final UserDto currentUser = userFacade.findUserByEmailOrThrow(authentication.getName());
+
+        return quizSessionFacade.updateSession(
+                courseId,
+                quizId,
+                currentUser.id(),
+                request.currentIndex(),
+                request.answers()
+        );
     }
 
     @GetMapping("/attempts")

@@ -1,5 +1,8 @@
 package pl.zieleeksw.quiz_me.attempt.domain;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.transaction.annotation.Transactional;
 import pl.zieleeksw.quiz_me.attempt.QuizAttemptAnswerRequest;
 import pl.zieleeksw.quiz_me.attempt.QuizAttemptDto;
@@ -17,25 +20,32 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public class QuizAttemptFacade {
 
     private final QuizAttemptRepository quizAttemptRepository;
+    private final QuizSessionRepository quizSessionRepository;
     private final CourseFacade courseFacade;
     private final QuizFacade quizFacade;
     private final QuestionFacade questionFacade;
+    private final ObjectMapper objectMapper;
 
     QuizAttemptFacade(
             final QuizAttemptRepository quizAttemptRepository,
+            final QuizSessionRepository quizSessionRepository,
             final CourseFacade courseFacade,
             final QuizFacade quizFacade,
-            final QuestionFacade questionFacade
+            final QuestionFacade questionFacade,
+            final ObjectMapper objectMapper
     ) {
         this.quizAttemptRepository = quizAttemptRepository;
+        this.quizSessionRepository = quizSessionRepository;
         this.courseFacade = courseFacade;
         this.quizFacade = quizFacade;
         this.questionFacade = questionFacade;
+        this.objectMapper = objectMapper;
     }
 
     public List<QuizAttemptDto> fetchCourseAttempts(
@@ -73,7 +83,13 @@ public class QuizAttemptFacade {
         final List<QuestionDto> currentQuestions = questionFacade.fetchQuestions(courseId);
         final Map<Long, QuestionDto> questionsById = currentQuestions.stream()
                 .collect(LinkedHashMap::new, (map, question) -> map.put(question.id(), question), Map::putAll);
-        final AttemptQuestionSpec questionSpec = resolveQuestionSpec(quiz, currentQuestions);
+        final Optional<QuizSessionEntity> activeSession = quizSessionRepository.findByCourseIdAndQuizIdAndUserId(courseId, quizId, userId);
+        final AttemptQuestionSpec questionSpec = activeSession
+                .map(session -> {
+                    final List<Long> sessionQuestionIds = deserializeQuestionIds(session.getQuestionIdsJson());
+                    return new AttemptQuestionSpec(new LinkedHashSet<>(sessionQuestionIds), sessionQuestionIds.size());
+                })
+                .orElseGet(() -> resolveQuestionSpec(quiz, currentQuestions));
 
         assertSubmittedQuestionsMatchQuiz(quiz, submittedAnswers.keySet(), questionSpec);
 
@@ -87,12 +103,13 @@ public class QuizAttemptFacade {
                 courseId,
                 quiz.id(),
                 userId,
-                quiz.title(),
+                activeSession.map(QuizSessionEntity::getQuizTitle).orElse(quiz.title()),
                 correctAnswers,
                 questionSpec.expectedCount(),
                 finishedAt
         );
         final QuizAttemptEntity saved = quizAttemptRepository.save(QuizAttemptEntity.from(attempt));
+        activeSession.ifPresent(quizSessionRepository::delete);
 
         return toDto(saved);
     }
@@ -221,6 +238,17 @@ public class QuizAttemptFacade {
         }
 
         return Instant.ofEpochSecond(epochSecond, roundedMicros * 1_000L);
+    }
+
+    private List<Long> deserializeQuestionIds(
+            final String questionIdsJson
+    ) {
+        try {
+            return objectMapper.readValue(questionIdsJson, new TypeReference<>() {
+            });
+        } catch (final JsonProcessingException ex) {
+            throw new IllegalStateException("Unable to deserialize quiz session questions.", ex);
+        }
     }
 
     private record AttemptQuestionSpec(
