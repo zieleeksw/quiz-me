@@ -178,6 +178,12 @@
   padding-right: 0.2rem;
 }
 
+.summary-attempts--compact-scroll {
+  max-height: 18rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
 .summary-legend__item,
 .summary-attempt {
   display: flex;

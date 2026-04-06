@@ -54,7 +54,7 @@
       </div>
 
       @if (quizInsightPreviews().length) {
-        <div class="summary-attempts">
+        <div class="summary-attempts summary-attempts--compact-scroll">
           @for (quiz of quizInsightPreviews(); track quiz.id) {
             <a class="summary-attempt" [routerLink]="quizInsightsLink(quiz.id)">
               <div>
